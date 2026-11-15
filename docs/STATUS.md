@@ -71,6 +71,10 @@ when the forced final answer is a textual tool call. Coder swapped to Heretic Qw
 llamacpp:8084@qwen36-heretic); Huihui (af-coder, 8082) is stopped and gets the same benchmarks in F for comparison.
 Old greedy partial results: results/qwen36-ablit/v0002/bench_c.greedy-harness-v2.json (3 tasks, 1.33).
 
+23:52: Spark memory hit 121/121 GB (operator + coder + 62 GB judge). af-coder-h was stopped while the operator runs
+bench C; ~/agent-forge/coder_after_judge.sh restarts it once Ollama has unloaded the judge (B and D need no judge).
+If queue4 waits on port 8084 and the judge is gone, run `svc.sh start af-coder-h` by hand. Coder bench C done:
+2.263 (1.75-2.78), 19 graded, 1 infra error (rerun it later: bench-c resumes and reruns infra rows).
 - [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
       bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
       "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
