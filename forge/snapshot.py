@@ -43,12 +43,36 @@ def _json_type(v) -> str:
     return "null"
 
 
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+
+
+def touched_root(steps: list[dict]) -> str | None:
+    """The git repo whose files this session read or wrote most; an edit counts three times."""
+    votes: dict[str, int] = {}
+    roots: dict[str, str | None] = {}
+    for s in steps:
+        if s["kind"] != "tool_call" or not isinstance(s.get("input"), dict):
+            continue
+        p = s["input"].get("file_path") or s["input"].get("notebook_path")
+        if not (isinstance(p, str) and p.startswith("/")):
+            continue
+        d = os.path.dirname(p)
+        if d not in roots:
+            roots[d] = ex.git_root(d)
+        if roots[d]:
+            votes[roots[d]] = votes.get(roots[d], 0) + (3 if s["name"] in EDIT_TOOLS else 1)
+    return max(sorted(votes), key=lambda r: votes[r]) if votes else None
+
+
 def _work(args) -> dict:
     """Worker: extract one file, write its pieces to tmp files, return its meta and a small summary."""
     idx, path, src_root, tmp, git_override = args
     traj = ex.extract(Path(path), Path(src_root))
-    if git_override is not None:
-        traj.meta["git_root"] = git_override.get(traj.meta["file"])
+    if git_override is not None:  # rebuild: use the roots recorded at snapshot time, not the live disk
+        rec = git_override.get(traj.meta["file"]) or {}
+        traj.meta["git_root"], traj.meta["touched_root"] = rec.get("git_root"), rec.get("touched_root")
+    else:
+        traj.meta["touched_root"] = touched_root(traj.steps)
     segs = sg.segments(traj.steps)
     hos = sg.handoffs(traj.steps, segs)
     sid = traj.meta["session_id"]
@@ -74,6 +98,7 @@ def _work(args) -> dict:
         "idx": idx, "meta": traj.meta, "tools": tools,
         "agents": sorted({seg["agent"] for seg in segs if seg["agent"] != sg.NEUTRAL}),
         "n_steps": len(traj.steps),
+        "edits": any(s["kind"] == "tool_call" and s.get("name") in EDIT_TOOLS for s in traj.steps),
         "n_calls": sum(1 for s in traj.steps if s["kind"] == "tool_call"),
     }
 
@@ -151,17 +176,20 @@ def build(
         r["project"] = sp.project_key(r["meta"], mains)
 
     infos = [
-        {"project": r["project"], "has_git": bool(r["meta"]["git_root"]), "agents": r["agents"]}
+        {"project": r["project"], "has_git": bool(r["meta"]["touched_root"] or r["meta"]["git_root"]),
+         "edits": r["edits"], "agents": r["agents"]}
         for r in kept if not r["meta"]["subagent"]
     ]
     eligible = sp.eligible_projects(infos)
     if heldout is None:
-        if HELDOUT_FILE.exists() and out_dir is None:
-            heldout = json.loads(HELDOUT_FILE.read_text())["project"]
+        saved = json.loads(HELDOUT_FILE.read_text()) if HELDOUT_FILE.exists() else {}
+        if saved.get("rules") == sp.RULES and out_dir is None:
+            heldout = saved["project"]
         else:
             heldout = sp.draw(eligible, seed)
             if out_dir is None:
-                HELDOUT_FILE.write_text(dumps({"project": heldout, "seed": seed, "drawn_from": eligible}) + "\n")
+                HELDOUT_FILE.write_text(dumps({"project": heldout, "seed": seed, "rules": sp.RULES,
+                                               "drawn_from": eligible}) + "\n")
 
     (out / "train").mkdir(exist_ok=True)
     (out / "heldout").mkdir(exist_ok=True)
@@ -201,7 +229,7 @@ def build(
 
     sources = [
         {"file": r["meta"]["file"], "sha256": r["meta"]["sha256"], "bytes": r["meta"]["bytes"],
-         "git_root": r["meta"]["git_root"], "project": r["project"]}
+         "git_root": r["meta"]["git_root"], "touched_root": r["meta"]["touched_root"], "project": r["project"]}
         for r in kept
     ]
     if raw:
@@ -215,6 +243,7 @@ def build(
         "seed": seed,
         "heldout_project": heldout,
         "eligible_projects": eligible,
+        "heldout_rules": sp.RULES,
         "code": _code_commit(),
         "training_targets": "fallback: claude_output steps are context only until Anthropic grants permission",
         "counts": {
@@ -253,7 +282,7 @@ def verify(snapshot: Path, rebuild: bool = False) -> list[str]:
             src.mkdir(parents=True)
             with tarfile.open(snapshot / m["raw"]["path"], "r:gz") as tar:
                 tar.extractall(src, filter="data")
-            git = {s["file"]: s["git_root"] for s in m["sources"]}
+            git = {s["file"]: {"git_root": s["git_root"], "touched_root": s.get("touched_root")} for s in m["sources"]}
             again = build(src, work / "out", seed=m["seed"], cutoff=time.time() + 10,
                           heldout=m["heldout_project"], git_override=git, raw=False)
             mine = {o["path"]: o["sha256"] for o in m["outputs"]}

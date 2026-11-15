@@ -72,3 +72,21 @@ def test_bench_a_items_render_and_score(fake_projects, tmp_path):
     assert bench_a.score(gold, {"name": "Read", "input": {}})["name"] == 0.0
     part = bench_a.score(gold, {"name": "Bash", "input": {"command": "pytest"}})
     assert part["exact"] == 0.0 and 0 < part["args"] < 1
+
+
+def test_touched_root_beats_starting_folder(tmp_path):
+    repo = tmp_path / "real"
+    (repo / ".git").mkdir(parents=True)
+    steps = [
+        {"kind": "tool_call", "name": "Read", "input": {"file_path": "/nowhere/x.py"}},
+        {"kind": "tool_call", "name": "Edit", "input": {"file_path": str(repo / "a.py")}},
+    ]
+    assert snapshot.touched_root(steps) == str(repo)
+    meta = {"touched_root": str(repo), "git_root": "/started/here", "cwd": "/started/here"}
+    assert split.project_key(meta, {}) == str(repo)
+
+
+def test_eligibility_needs_editing_sessions():
+    base = {"project": "/p", "has_git": True, "agents": ["coder", "operator"]}
+    assert split.eligible_projects([{**base, "edits": True}] * 2 + [{**base, "edits": False}] * 3) == []
+    assert split.eligible_projects([{**base, "edits": True}] * 3 + [{**base, "edits": False}] * 2) == ["/p"]
