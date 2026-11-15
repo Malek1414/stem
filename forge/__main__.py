@@ -30,7 +30,7 @@ def main(argv=None) -> int:
     b.add_argument("--base-url", default="http://localhost:11434")
     b.add_argument("--n", type=int, default=300)
     b.add_argument("--limit", type=int)
-    b.add_argument("--num-ctx", type=int, default=32_768)
+    b.add_argument("--num-ctx", type=int)
     a = ap.parse_args(argv)
 
     if a.cmd == "snapshot":

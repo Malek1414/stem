@@ -40,9 +40,10 @@ def build_items(snapshot: Path, n: int = 300, seed: int = 0) -> list[dict]:
                     "id": f"{t['meta']['file']}#{i}", "file": t["meta"]["file"], "step": i,
                     "agent": labels[i], "gold": {"name": s["name"], "input": s["input"]},
                 })
-    items.sort(key=lambda x: x["id"])
+    order = lambda x: (x["file"], x["step"])
+    items.sort(key=order)
     if len(items) > n:
-        items = sorted(random.Random(seed).sample(items, n), key=lambda x: x["id"])
+        items = sorted(random.Random(seed).sample(items, n), key=order)
     return items
 
 
@@ -53,7 +54,7 @@ def _clip(text: str, limit: int) -> str:
     return text[:half] + f"\n[... {len(text) - limit} chars cut ...]\n" + text[-half:]
 
 
-def render(steps: list[dict], budget_chars: int = 96_000, per_result: int = 4_000) -> list[dict]:
+def render(steps: list[dict], budget_chars: int = 32_000, per_result: int = 2_000) -> list[dict]:
     """Steps before the target -> Ollama chat messages. Oldest messages after the first prompt are
     dropped until the context fits the budget."""
     msgs: list[dict] = []
@@ -133,9 +134,9 @@ def _post(url: str, body: dict, timeout: int = 600) -> dict:
 
 
 def model_digest(base_url: str, model: str) -> dict:
-    with urllib.request.urlopen(f"{base_url}/api/tags", timeout=30) as r:
+    with urllib.request.urlopen(f"{base_url}/api/tags", timeout=300) as r:
         tags = json.loads(r.read())
-    with urllib.request.urlopen(f"{base_url}/api/version", timeout=30) as r:
+    with urllib.request.urlopen(f"{base_url}/api/version", timeout=300) as r:
         version = json.loads(r.read()).get("version")
     m = next((x for x in tags.get("models", []) if x.get("name") == model or x.get("model") == model), {})
     return {"digest": m.get("digest"), "quantization": (m.get("details") or {}).get("quantization_level"),
@@ -143,7 +144,7 @@ def model_digest(base_url: str, model: str) -> dict:
 
 
 def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", n: int = 300,
-        limit: int | None = None, num_ctx: int = 32_768, seed: int = 0) -> Path:
+        limit: int | None = None, num_ctx: int | None = None, seed: int = 0) -> Path:
     snapshot = Path(snapshot)
     registry = json.loads((snapshot / "tools.json").read_text())
     trajs = {t["meta"]["file"]: t for t in load_heldout(snapshot)}
@@ -152,10 +153,13 @@ def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", n:
         items = items[:limit]
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_a.json"
     out.parent.mkdir(parents=True, exist_ok=True)
+    settings = {"temperature": 0, "seed": seed, "num_ctx": num_ctx or "model default", "budget_chars": 32_000, "per_result": 2_000}
     done = {}
     if out.exists():
-        done = {r["id"]: r for r in json.loads(out.read_text()).get("items", [])}
-    settings = {"temperature": 0, "seed": seed, "num_ctx": num_ctx, "budget_chars": 96_000, "per_result": 4_000}
+        prev = json.loads(out.read_text())
+        if prev.get("settings") == settings:  # resume only a run with identical settings
+            done = {r["id"]: r for r in prev.get("items", [])}
+    digest = model_digest(base_url, model)
     rows = []
     for it in items:
         if it["id"] in done:
@@ -166,7 +170,7 @@ def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", n:
             "model": model, "stream": False,
             "messages": [{"role": "system", "content": SYSTEM}] + render(steps),
             "tools": tools_for(trajs[it["file"]]["steps"], registry),
-            "options": {"temperature": 0, "seed": seed, "num_ctx": num_ctx},
+            "options": {"temperature": 0, "seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {}),
         }
         t0 = time.time()
         try:
@@ -185,21 +189,17 @@ def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", n:
             pred, err = None, repr(e)
         rows.append({**it, "pred": pred, "error": err, "seconds": round(time.time() - t0, 2),
                      "score": score(it["gold"], pred)})
-        _save(out, model, snapshot, settings, rows, base_url)
-    _save(out, model, snapshot, settings, rows, base_url)
+        _save(out, model, snapshot, settings, rows, digest)
+    _save(out, model, snapshot, settings, rows, digest)
     return out
 
 
-def _save(out: Path, model: str, snapshot: Path, settings: dict, rows: list[dict], base_url: str) -> None:
+def _save(out: Path, model: str, snapshot: Path, settings: dict, rows: list[dict], digest: dict) -> None:
     def agg(rs):
         if not rs:
             return None
         return {k: round(sum(r["score"][k] for r in rs) / len(rs), 4) for k in ("name", "exact", "args")} | {"n": len(rs)}
     manifest = json.loads((snapshot / "manifest.json").read_text())
-    try:
-        digest = model_digest(base_url, model)
-    except Exception as e:
-        digest = {"error": repr(e)}
     report = {
         "benchmark": "A", "model": model, "model_record": digest, "snapshot": snapshot.name,
         "snapshot_heldout": manifest["heldout_project"], "settings": settings,
