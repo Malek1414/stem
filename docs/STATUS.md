@@ -79,13 +79,44 @@ Old greedy partial results: results/qwen36-ablit/v0002/bench_c.greedy-harness-v2
       down: `~/agent-forge/svc.sh status`, `svc.sh start af-operator af-coder-h`.
 - [ ] D. When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
       + null control, D accuracy + seconds), compare with the baseline, commit.
+- [ ] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
+      `python -m forge bench-c data/snapshots/v0002 --model llamacpp:8084@qwen36-heretic --replay-tools` and the same
+      with `--model llamacpp:8081@holo4-heretic`. Writes bench_c_replay.json (also an "offline" score). Record; commit.
 - [ ] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
       `cd ~/agent-forge && PYTHONPATH=$HOME/agent-forge HF_HUB_OFFLINE=1 setsid nohup ~/vllm-nano/.venv/bin/python -m latent bench --model Qwen/Qwen3-8B --n 200 --seed 7 --level hard --conditions text_full,text_card,kv_full,kv_q8,kv_goal,latentmas > hard200.log 2>&1 &`
       (~1 h, ~20 GB); when it ends record per-kind accuracy for kinds 1-3 in RESULTS.md.
-- [ ] E. Old model rerun with the same settings (Ollama, Spark servers stay stopped): on the Mac
+- [ ] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
+      `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
+      Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
+      not, fix train_lora.py to load the text model), memory stays under ~110 GB (free -g), note tok_per_s, and the
+      GGUF conversion works. Fix what fails (max-len 8192 if memory runs out).
+- [ ] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
+      `setsid nohup ./train.sh coder v1 <tokens> > train_coder_v1.log 2>&1 &` (link message train-done). Check
+      eval_loss falls in adapters/coder-v1/log.jsonl.
+- [ ] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
+      coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
+      --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
+      llamacpp:8085@qwen36-heretic-tuned. Compare with the untuned numbers (R, D). Record; commit.
+- [ ] O1. Operator training: servers off, `./train.sh operator v1 <tokens>` (LoRA trained on base Holo4 weights,
+      applied to the Heretic GGUF: check it loads and that bench numbers do not drop). Then `svc.sh start
+      af-operator-t <coder>` (port 8086, `nvsync open malekhassan 8086`), bench-d and bench-c --replay-tools with
+      --model llamacpp:8086@holo4-heretic-tuned, bench-b duo with the best coder. Record; commit.
+
+## Target and loop (Malek, 2026-11-15 23:00: "loop until 4 is reached")
+
+Target: benchmark C with --replay-tools, overall >= 4.0 (1-5 judge scale, n=20) for the coder agent, with the
+offline subset and benchmark B reported next to it. Without replayed tools the ceiling is ~3.2 (12/20 tasks need
+apps), which is why the target uses the replay run.
+Loop after T3/O1, one change per iteration, keep everything else fixed: (1) 2x the token budget, (2) a second epoch
+(--max-tokens 0 plus resume), (3) rank 32. After each: retrain, re-run T3's benchmarks, record. Stop when the target
+is reached, or after 3 iterations, or when two iterations in a row improve bench C by < 0.1 (diminishing returns).
+Then write the summary for Malek at the top of docs/RESULTS.md (what reached what, honestly, with CIs), restart the
+best servers, delete the watcher cron job. E and F below are optional comparisons: run them only if the GPU is idle.
+
+- [ ] E. (optional) Old model rerun with the same settings (Ollama, Spark servers stay stopped): on the Mac
       `python -m forge bench-c data/snapshots/v0002 --model qwen3-coder-next-abliterated-128k` then bench-b (same
       model). Unload it afterwards (`curl sync://ollama/api/generate -d '{"model":"...","keep_alive":0}'`). Record, commit.
-- [ ] F. Coder comparison, one server at a time: `svc.sh start af-coder` (Huihui, 8082): bench-c and bench-b with
+- [ ] F. (optional) Coder comparison, one server at a time: `svc.sh start af-coder` (Huihui, 8082): bench-c and bench-b with
       --model llamacpp:8082@qwen36-ablit; `svc.sh stop af-coder`. Then `svc.sh start af-dense`,
       `nvsync open malekhassan 8083`, bench-c and bench-b with --model llamacpp:8083@qwen38-ablit; `svc.sh stop af-dense`.
       Record; commit.
