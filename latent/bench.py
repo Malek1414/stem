@@ -259,7 +259,7 @@ def run(model_id: str, n: int = 60, seed: int = 20261115, conditions=CONDITIONS,
            "links": {k: [v[0] if v[0] != math.inf else "inf", v[1]] for k, v in links.items()},
            "summary": summary, "rows": rows}
     out_dir.mkdir(parents=True, exist_ok=True)
-    p = out_dir / f"{model_id.replace('/', '_')}_n{n}_s{seed}" + (f"_ctx{ctx_chars}" if ctx_chars else "") + ".json"
+    p = out_dir / (f"{model_id.replace('/', '_')}_n{n}_s{seed}" + (f"_ctx{ctx_chars}" if ctx_chars else "") + ".json")
     p.write_text(json.dumps(res, indent=1))
     res["path"] = str(p)
     return res
