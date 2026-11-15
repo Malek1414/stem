@@ -10,6 +10,8 @@ question that depends on it. Both run the same model. Conditions:
   kv_q8       same, int8 per-vector quantised
   kvcomm      only the top `ratio` of layers, chosen once on calibration tasks by attention mass x Gaussian
               prior over depth (KVComm, Shi et al. 2025, arXiv 2510.03346); other layers mask the sender out
+  kv_goal     like latentmas with 0 latent steps: the operator's KV after context + the coder's goal. Ablation that
+              separates "the sender knew the goal" from "the latent steps helped" (added after run 1 showed the confound)
   latentmas   operator adds `latent_steps` latent thoughts after its context (LatentMAS, arXiv 2511.20639)
 
 Every condition records accuracy, sender seconds, receiver time-to-first-token, decode seconds and wire
@@ -31,7 +33,7 @@ from forge.stats import wilson
 
 from . import attn, cache as kvc, latentmas
 
-CONDITIONS = ("none", "text_full", "text_card", "kv_full", "kv_q8", "kvcomm", "latentmas")
+CONDITIONS = ("none", "text_full", "text_card", "kv_full", "kv_q8", "kvcomm", "kv_goal", "latentmas")
 VERBS = "load parse apply compute merge validate render sync flush resolve encode fetch".split()
 NOUNS = "order invoice cart token session ledger quota batch refund schema cursor payload".split()
 CONSTS = "RATE_LIMIT MAX_RETRIES TIMEOUT_MS PAGE_SIZE CACHE_TTL BATCH_CAP SHARD_COUNT GRACE_DAYS".split()
@@ -147,7 +149,7 @@ def run_condition(R: Runner, task: dict, cond: str, cfg: dict) -> dict:
         rec.update(sender_s=s1 + s2, card=card, bytes=len(card.encode()))
         prompt = torch.cat([R.ids(CARD.format(card=card)), ask_ids], 1)
     else:
-        sender_ids = ctx_ids if cond != "latentmas" else torch.cat([ctx_ids, R.ids(THINK.format(question=task["question"]))], 1)
+        sender_ids = ctx_ids if cond not in ("latentmas", "kv_goal") else torch.cat([ctx_ids, R.ids(THINK.format(question=task["question"]))], 1)
         c, _, h, s1 = R.prefill(sender_ids)
         if cond == "latentmas":
             t = time.perf_counter()
@@ -192,7 +194,10 @@ def calibrate_kvcomm(R: Runner, tasks: list[dict], ratio: float) -> dict:
 
 
 def e2e(r: dict, mbps: float, rtt_ms: float) -> float:
-    wire = 0.0 if mbps == math.inf else r["bytes"] * 8 / (mbps * 1e6) + rtt_ms / 1000
+    """Co-located agents hand over the cache object itself, so no serialisation and no wire time."""
+    if mbps == math.inf:
+        return r["sender_s"] + r["receiver_ttft_s"] + r["decode_s"]
+    wire = r["bytes"] * 8 / (mbps * 1e6) + rtt_ms / 1000
     return r["sender_s"] + r["pack_s"] + wire + r["receiver_ttft_s"] + r["decode_s"]
 
 
