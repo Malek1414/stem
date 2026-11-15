@@ -138,7 +138,8 @@ def model_digest(base_url: str, model: str) -> dict:
         tags = json.loads(r.read())
     with urllib.request.urlopen(f"{base_url}/api/version", timeout=300) as r:
         version = json.loads(r.read()).get("version")
-    m = next((x for x in tags.get("models", []) if x.get("name") == model or x.get("model") == model), {})
+    names = {model, model if ":" in model else f"{model}:latest"}
+    m = next((x for x in tags.get("models", []) if x.get("name") in names or x.get("model") in names), {})
     return {"digest": m.get("digest"), "quantization": (m.get("details") or {}).get("quantization_level"),
             "runtime": "ollama", "runtime_version": version}
 
