@@ -14,26 +14,30 @@ from typing import Callable
 
 ChatFn = Callable[[list[dict], list[dict]], dict]
 
+# Claude Code's own tool names and argument names: the session history the model sees uses them, and
+# so does the training data. Lower-case aliases are accepted too.
 TOOLS = [
     {"type": "function", "function": {
-        "name": "bash", "description": "Run a shell command in the work folder (no network). Returns exit code and output.",
+        "name": "Bash", "description": "Run a shell command in the work folder (no network). Returns exit code and output.",
         "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}},
     {"type": "function", "function": {
-        "name": "read_file", "description": "Read a text file.",
-        "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
+        "name": "Read", "description": "Read a text file.",
+        "parameters": {"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]}}},
     {"type": "function", "function": {
-        "name": "write_file", "description": "Create or overwrite a text file.",
-        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
-                       "required": ["path", "content"]}}},
+        "name": "Write", "description": "Create or overwrite a text file.",
+        "parameters": {"type": "object", "properties": {"file_path": {"type": "string"}, "content": {"type": "string"}},
+                       "required": ["file_path", "content"]}}},
     {"type": "function", "function": {
-        "name": "edit_file", "description": "Replace one exact occurrence of old_string with new_string in a file.",
-        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old_string": {"type": "string"},
+        "name": "Edit", "description": "Replace one exact occurrence of old_string with new_string in a file.",
+        "parameters": {"type": "object", "properties": {"file_path": {"type": "string"}, "old_string": {"type": "string"},
                                                         "new_string": {"type": "string"}},
-                       "required": ["path", "old_string", "new_string"]}}},
+                       "required": ["file_path", "old_string", "new_string"]}}},
     {"type": "function", "function": {
         "name": "done", "description": "Call when the task is finished.",
         "parameters": {"type": "object", "properties": {"summary": {"type": "string"}}}}},
 ]
+ALIASES = {"bash": "Bash", "read": "Read", "read_file": "Read", "write": "Write", "write_file": "Write",
+           "edit": "Edit", "edit_file": "Edit"}
 
 
 def sandbox_profile(workdir: Path) -> str:
@@ -59,27 +63,30 @@ class Workspace:
         return q
 
     def call(self, name: str, args: dict) -> str:
+        name = ALIASES.get(name, ALIASES.get(name.lower(), name))
+        path = args.get("file_path") or args.get("path")
         try:
-            if name == "bash":
+            if name == "Bash":
                 r = subprocess.run(["sandbox-exec", "-p", sandbox_profile(self.root), "bash", "-c", str(args.get("command", ""))],
                                    cwd=self.root, capture_output=True, text=True, timeout=self.bash_timeout)
                 return _clip(f"exit {r.returncode}\n{r.stdout}{r.stderr}")
-            if name == "read_file":
-                return _clip(self._path(args["path"]).read_text(errors="replace"), 20_000)
-            if name == "write_file":
-                p = self._path(args["path"])
+            if name == "Read":
+                return _clip(self._path(path).read_text(errors="replace"), 20_000)
+            if name == "Write":
+                p = self._path(path)
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(str(args.get("content", "")))
                 return f"wrote {p.relative_to(self.root)}"
-            if name == "edit_file":
-                p = self._path(args["path"])
+            if name == "Edit":
+                p = self._path(path)
                 text = p.read_text(errors="replace")
                 old = str(args.get("old_string", ""))
                 if not old or text.count(old) != 1:
                     return f"error: old_string found {text.count(old) if old else 0} times, need exactly 1"
                 p.write_text(text.replace(old, str(args.get("new_string", "")), 1))
                 return f"edited {p.relative_to(self.root)}"
-            return f"error: unknown tool {name}"
+            return (f"error: {name} is not available in this run. Available tools: Bash, Read, Write, Edit, "
+                    "done. Use Bash for anything else (no network).")
         except subprocess.TimeoutExpired:
             return f"error: command timed out after {self.bash_timeout}s"
         except Exception as e:

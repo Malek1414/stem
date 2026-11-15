@@ -48,7 +48,7 @@ def test_tasks_and_expected_state(repo):
 def test_good_agent_passes_and_noop_fails(repo, tmp_path):
     t = traj(repo)
     task = bench_b.build_tasks([t])[0]
-    good = scripted(call("edit_file", path="a.py", old_string="x = 1", new_string="x = 2"), call("done"))
+    good = scripted(call("Edit", file_path="a.py", old_string="x = 1", new_string="x = 2"), call("done"))
     r = bench_b.run_task(task, t["steps"], good, root=tmp_path / "w")
     assert r["score"] == 1.0 and r["finished"]
     noop = scripted({"role": "assistant", "content": "nothing to do"})
