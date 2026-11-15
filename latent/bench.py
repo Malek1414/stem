@@ -158,7 +158,7 @@ def run_condition(R: Runner, task: dict, cond: str, cfg: dict) -> dict:
         layers = sorted(cfg["kvcomm_layers"]) if cond == "kvcomm" else None
         t = time.perf_counter()
         blob = kvc.pack(c, R.model_id, layers=layers, quant="int8" if cond == "kv_q8" else "fp16")
-        cache, hdr = kvc.unpack(blob, R.model_id, R.device, R.dtype)
+        cache, hdr = kvc.unpack(blob, R.model_id, R.device, R.dtype, config=R.model.config)
         rec.update(sender_s=s1, pack_s=time.perf_counter() - t, bytes=len(blob), sender_tokens=hdr["seq_len"])
         hide = kvc.seq_len(cache)
         selected = set(layers) if layers is not None else None
@@ -176,6 +176,8 @@ def calibrate_kvcomm(R: Runner, tasks: list[dict], ratio: float) -> dict:
     """Layer importance = attention mass the coder's question puts on the operator's positions, averaged over
     calibration tasks, times a Gaussian prior over depth (centre L/2, sigma L/4; our choice of prior parameters)."""
     L, scores = R.n_layers, {}
+    attn_layers = [i for i, k in enumerate(getattr(R.model.config, "layer_types", None) or ["full_attention"] * L)
+                   if k != "linear_attention"]
     for task in tasks:
         c, _, _, _ = R.prefill(R.ids(CTX.format(context=task["context"])))
         rec: dict = {}
@@ -184,9 +186,9 @@ def calibrate_kvcomm(R: Runner, tasks: list[dict], ratio: float) -> dict:
         for li, v in rec.items():
             scores[li] = scores.get(li, 0.0) + v / len(tasks)
     prior = {i: math.exp(-((i - L / 2) ** 2) / (2 * (L / 4) ** 2)) for i in range(L)}
-    ranked = sorted(range(L), key=lambda i: -scores.get(i, 0.0) * prior[i])
-    k = max(1, math.ceil(ratio * L))
-    return {"layers": sorted(ranked[:k]), "scores": {i: round(scores.get(i, 0.0), 4) for i in range(L)}}
+    ranked = sorted(attn_layers, key=lambda i: -scores.get(i, 0.0) * prior[i])
+    k = max(1, math.ceil(ratio * len(attn_layers)))  # hybrid models: recurrent state always travels
+    return {"layers": sorted(ranked[:k]), "scores": {i: round(scores.get(i, 0.0), 4) for i in attn_layers}}
 
 
 def e2e(r: dict, mbps: float, rtt_ms: float) -> float:

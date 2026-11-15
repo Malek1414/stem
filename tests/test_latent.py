@@ -91,3 +91,32 @@ def test_tasks_are_deterministic_and_answerable():
     for t in a:
         assert t["answer"] in t["context"]
     assert correct("It was `parse_order`.", "parse_order") and not correct("parse_orders", "parse_order")
+
+
+@pytest.fixture(scope="module")
+def hybrid():
+    torch.manual_seed(0)
+    cfg = transformers.Qwen3NextConfig(
+        vocab_size=128, hidden_size=64, intermediate_size=128, num_hidden_layers=4, num_attention_heads=4,
+        num_key_value_heads=2, head_dim=16, linear_num_value_heads=4, linear_num_key_heads=2, linear_key_head_dim=16,
+        linear_value_head_dim=16, num_experts=4, num_experts_per_tok=2, moe_intermediate_size=32,
+        shared_expert_intermediate_size=32, full_attention_interval=2, max_position_embeddings=256)
+    return transformers.AutoModelForCausalLM.from_config(cfg, attn_implementation=attn.NAME, dtype=torch.float32).eval()
+
+
+@torch.no_grad()
+def test_hybrid_qwen3_next_state_handoff(hybrid):
+    """Qwen3-Next: linear-attention layers carry conv + recurrent state, attention layers carry KV. Both travel."""
+    ctx, ask = ids(*range(5, 25)), ids(30, 31, 32)
+    full = hybrid(input_ids=torch.cat([ctx, ask], 1)).logits[:, -1]
+    c = hybrid(input_ids=ctx, use_cache=True).past_key_values
+    blob = kvc.pack(c, "tiny-next")
+    hdr, _ = kvc.read_header(blob)
+    assert hdr["kinds"] == ["linear", "kv", "linear", "kv"]
+    c2, _ = kvc.unpack(blob, "tiny-next", "cpu", config=hybrid.config)
+    assert kvc.seq_len(c2) == 20
+    split = hybrid(input_ids=ask, past_key_values=c2, use_cache=True).logits[:, -1]
+    assert torch.allclose(full, split, atol=2e-2)
+    # layer selection only drops attention layers; recurrent state always travels
+    sel = kvc.pack(c, "tiny-next", layers=[1])
+    assert kvc.read_header(sel)[0]["layers"] == [0, 1, 2]
