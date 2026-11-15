@@ -51,6 +51,8 @@ class Daemon:
                     "waiting_for_approval": len(n.state.approvals())}
         if cmd == "ping":
             return await n.ping(req["peer"], int(req.get("n", 10)))
+        if cmd == "send_kv":  # blobs go by file path, the control socket carries one JSON line
+            return await n.send_kv(req["peer"], Path(req["path"]).read_bytes(), req.get("meta", {}))
         if cmd == "paths":
             return n.paths(req["peer"])
         if cmd == "invite":

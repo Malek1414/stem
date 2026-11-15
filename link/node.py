@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import struct
 import time
 import uuid
 
@@ -25,6 +26,8 @@ from .state import SCOPES, State
 
 ALPN = b"agent-forge/link/1"
 MAX_FRAME = 8 << 20
+MAX_BLOB = 1 << 30  # latent KV blobs, own machines only
+BLOB_MAGIC = b"AFB1"
 
 
 def _b64(b: bytes) -> str:
@@ -120,6 +123,24 @@ class Node:
         bi = await conn.open_bi()
         s = bi.send()
         await s.write_all(json.dumps(req).encode())
+        await s.finish()
+        res = json.loads(await bi.recv().read_to_end(MAX_FRAME))
+        if not res.get("ok"):
+            raise LinkError(res.get("error", "request failed"))
+        return res.get("result", {})
+
+    async def send_kv(self, peer_name: str, blob: bytes, meta: dict) -> dict:
+        """Send a latent KV blob (see latent.cache) to one of your own machines. Binary frame:
+        AFB1 + u32 header length + JSON header + raw bytes, so nothing is base64-inflated."""
+        peer = self.state.peer_by_name(peer_name) or self.state.peer(peer_name)
+        if not peer:
+            raise LinkError(f"no active peer called {peer_name}")
+        head = json.dumps({"op": "latent_kv", "meta": meta, "nbytes": len(blob)}).encode()
+        conn = await self._connect(peer["id"], peer["ticket"])
+        bi = await conn.open_bi()
+        s = bi.send()
+        await s.write_all(BLOB_MAGIC + struct.pack(">I", len(head)) + head)
+        await s.write_all(blob)
         await s.finish()
         res = json.loads(await bi.recv().read_to_end(MAX_FRAME))
         if not res.get("ok"):
@@ -234,8 +255,25 @@ class Node:
 
     async def _stream(self, remote: str, bi) -> None:
         try:
-            req = json.loads(await bi.recv().read_to_end(MAX_FRAME))
-            res = {"ok": True, "result": await self._handle(remote, req)}
+            r = bi.recv()
+            first = await r.read_exact(8)
+            if first[:4] == BLOB_MAGIC:
+                head = json.loads(await r.read_exact(struct.unpack(">I", first[4:])[0]))
+                peer = self.state.peer(remote)  # authorise before reading a large body
+                if not peer or peer["role"] != "self" or head.get("op") != "latent_kv":
+                    raise LinkError("latent KV is only accepted from your own machines")
+                if head["nbytes"] > MAX_BLOB:
+                    raise LinkError("blob too large")
+                blob = await r.read_to_end(MAX_BLOB)
+                if len(blob) != head["nbytes"]:
+                    raise LinkError("blob truncated")
+                bid = self.state.latent_store(blob)
+                self._event({"type": "latent_kv", "blob_id": bid, "bytes": len(blob), "meta": head.get("meta", {}),
+                             "from": peer["id"], "from_name": peer["name"], "trusted": True})
+                res = {"ok": True, "result": {"status": "stored", "blob_id": bid, "bytes": len(blob)}}
+            else:
+                req = json.loads(first + await r.read_to_end(MAX_FRAME))
+                res = {"ok": True, "result": await self._handle(remote, req)}
         except Exception as e:
             res = {"ok": False, "error": str(e) or e.__class__.__name__}
         s = bi.send()

@@ -4,6 +4,7 @@ Identity is the node's iroh secret key (Ed25519). Every iroh connection proves w
 the other end, so a peer is simply an endpoint id we have accepted, with scopes and a revoked flag."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -118,6 +119,19 @@ class State:
         else:
             a[key] = entry
         self._save("approvals.json", a)
+
+    # --- latent KV blobs from your own machines ----------------------------------------------
+    def latent_store(self, blob: bytes) -> str:
+        d = self.home / "latent"
+        d.mkdir(exist_ok=True)
+        bid = hashlib.sha256(blob).hexdigest()[:24]
+        (d / f"{bid}.kv").write_bytes(blob)
+        return bid
+
+    def latent_blob(self, bid: str) -> bytes:
+        if not bid.isalnum():
+            raise ValueError("bad blob id")
+        return (self.home / "latent" / f"{bid}.kv").read_bytes()
 
     # --- workspaces: append-only logs hosted by their creator ----------------------------------
     def ws_path(self, ws: str) -> Path:

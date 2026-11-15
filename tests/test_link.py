@@ -142,3 +142,19 @@ async def test_ping_and_paths(trio):
     assert r["n"] == 5 and r["median_ms"] >= 0 and r["p95_ms"] >= r["median_ms"]
     paths = coder.paths("malek")
     assert paths and any(p["selected"] for p in paths) and paths[0]["kind"] in ("direct", "relay")
+
+
+async def test_kv_blob_from_own_machine_is_stored(trio):
+    me, _, coder = trio
+    blob = bytes(range(256)) * 40000  # ~10 MB, above the JSON frame limit
+    r = await coder.send_kv("malek", blob, {"model": "m", "seq_len": 7})
+    assert r["status"] == "stored" and r["bytes"] == len(blob)
+    last = me.state.inbox()[-1]
+    assert last["type"] == "latent_kv" and last["meta"]["seq_len"] == 7 and last["trusted"] is True
+    assert me.state.latent_blob(last["blob_id"]) == blob
+
+
+async def test_kv_blob_from_other_people_is_refused(trio):
+    _, friend, _ = trio
+    with pytest.raises(LinkError, match="own machines"):
+        await friend.send_kv("malek", b"x" * 100, {"model": "m"})
