@@ -257,9 +257,10 @@ def verify(snapshot: Path, rebuild: bool = False) -> list[str]:
             again = build(src, work / "out", seed=m["seed"], cutoff=time.time() + 10,
                           heldout=m["heldout_project"], git_override=git, raw=False)
             mine = {o["path"]: o["sha256"] for o in m["outputs"]}
-            for p in sorted(x for x in again.rglob("*") if x.is_file() and x.name != "manifest.json"):
-                rel = str(p.relative_to(again))
-                if mine.get(rel) != _sha(p):
+            theirs = {str(p.relative_to(again)): _sha(p)
+                      for p in again.rglob("*") if p.is_file() and p.name != "manifest.json"}
+            for rel in sorted(set(mine) | set(theirs)):
+                if mine.get(rel) != theirs.get(rel):
                     problems.append(f"rebuild differs: {rel}")
             shutil.rmtree(work, ignore_errors=True)
     return problems
