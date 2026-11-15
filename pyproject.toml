@@ -1,6 +1,7 @@
 [project]
 name = "agent-forge"
 version = "0.1.0"
+description = "Operator + coder agents trained on your own Claude Code sessions, and a link between Claudes"
 requires-python = ">=3.12"
 dependencies = ["iroh>=1.2,<2", "a2a-sdk>=1.3,<2", "mcp>=1.10"]
 
@@ -12,10 +13,20 @@ latent = [
     "transformers>=4.53",
 ]
 
-[tool.uv]
-package = false
+[project.scripts]
+agent-forge-link = "link.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["link", "forge", "latent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.uv]
+default-groups = ["dev", "latent"]
