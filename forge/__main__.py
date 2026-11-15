@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import net, bench_a, bench_b, bench_c, snapshot
+from . import net, bench_a, bench_b, bench_c, bench_d, snapshot
 
 
 def main(argv=None) -> int:
@@ -49,6 +49,11 @@ def main(argv=None) -> int:
     bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
     bc.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bc.add_argument("--limit", type=int)
+    bd = sub.add_parser("bench-d", help="click grounding on the user's own screens (vision models)")
+    bd.add_argument("snapshot")
+    bd.add_argument("--model", required=True)
+    bd.add_argument("--base-url", default=net.SYNC_OLLAMA)
+    bd.add_argument("--limit", type=int)
     cp = sub.add_parser("compare")
     cp.add_argument("snapshot")
     cp.add_argument("bench", choices=["a", "b", "c"])
@@ -79,6 +84,11 @@ def main(argv=None) -> int:
         return 0
     if a.cmd == "bench-b":
         out = bench_b.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit, match=a.match, coder=a.coder)
+        print(out)
+        print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
+        return 0
+    if a.cmd == "bench-d":
+        out = bench_d.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0
