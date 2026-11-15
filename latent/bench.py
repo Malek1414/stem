@@ -96,6 +96,73 @@ def make_tasks(n: int, seed: int, ctx_chars: int = 0) -> list[dict]:
     return out
 
 
+def make_hard_tasks(n: int, seed: int, ctx_chars: int = 0) -> list[dict]:
+    """Multi-hop tasks: every answer needs 2-3 lookups, and each lookup has a decoy next to it.
+      - constants are overridden further down the file (the last assignment wins)
+      - a legacy module defines the same function names with different guards
+      - the log has handled ValueErrors before the one that crashed
+    kinds: 0 crashing function, 1 constant it violated, 2 that constant's effective value, 3 how far over the limit."""
+    out = []
+    for i in range(n):
+        r = random.Random(f"hard:{seed}:{i}")
+        fns = r.sample([f"{v}_{o}" for v in VERBS for o in NOUNS], 10)
+        params = [r.choice(["amount", "limit", "user_id", "offset", "count", "size"]) for _ in fns]
+        names = r.sample(CONSTS, 8)
+        default = {c: r.randint(10, 999) for c in names}
+        guard = {f: r.choice(names) for f in fns}
+        bad = r.randrange(len(fns))
+        cb = guard[fns[bad]]
+        overridden = set(r.sample([c for c in names if c != cb], 2)) | ({cb} if r.random() < 0.7 else set())
+        override = {c: r.randint(10, 999) for c in sorted(overridden)}
+        for c in override:
+            while override[c] == default[c]:
+                override[c] = r.randint(10, 999)
+        eff = {c: override.get(c, default[c]) for c in names}
+        delta = r.randint(1, 500)
+        val = eff[cb] + delta
+        mod = r.choice(["billing", "orders", "auth", "search"])
+        core = [f"# file: {mod}/core.py"] + [f"{c} = {v}" for c, v in default.items()] + [""]
+        for f, p in zip(fns, params):
+            core += [f"def {f}({p}, ctx):", f"    if {p} is None or {p} > {guard[f]}:",
+                     f"        raise ValueError(f'invalid {p}={{{p}}}')", f"    return ctx.step('{f}', {p})", ""]
+        core += ["# overrides loaded from config/prod.toml (these replace the defaults above)"]
+        core += [f"{c} = {v}" for c, v in override.items()] + [""]
+        legacy = [f"# file: {mod}/legacy.py (not imported in production)"]
+        for f in r.sample([f for f in fns if f != fns[bad]], 3) + [fns[bad]]:
+            c = r.choice([x for x in names if x != guard[f]])
+            p = params[fns.index(f)]
+            legacy += [f"def {f}({p}, ctx):", f"    if {p} > {c}:", f"        raise ValueError('legacy {p}')", "    return None", ""]
+        handled = [f for f in fns if f != fns[bad]]
+        log = []
+        for _ in range(2):
+            f = r.choice(handled)
+            p = params[fns.index(f)]
+            log.append(f"2026-11-15 09:{r.randint(10, 59)}:{r.randint(10, 59)} WARNING {f}: ValueError: invalid {p}="
+                       f"{r.randint(1000, 9999)} (handled, retried ok)")
+        log += [f"2026-11-15 09:{r.randint(10, 59)}:{r.randint(10, 59)} INFO {r.choice(fns)} ok in {r.randint(2, 90)} ms"
+                for _ in range(3)]
+        tb = ["Traceback (most recent call last):", f'  File "{mod}/runner.py", line {r.randint(20, 200)}, in run',
+              f'  File "{mod}/core.py", line {r.randint(10, 60)}, in {fns[bad]}', f"ValueError: invalid {params[bad]}={val}"]
+        lines = core + legacy
+        if ctx_chars:
+            fill = _filler(random.Random(f"hard:{seed}:{i}:fill"), ctx_chars - sum(len(x) + 1 for x in lines + log + tb))
+            half = len(fill) // 2
+            lines = core[:1] + fill[:half] + core[1:] + fill[half:] + legacy
+        ctx = "\n".join(lines + log + tb)
+        kind = i % 4
+        if kind == 0:
+            q, a = "Which function raised the ValueError that crashed the run (not a handled one)?", fns[bad]
+        elif kind == 1:
+            q, a = "Which constant's limit did the rejected value exceed in the crash? Give the constant name.", cb
+        elif kind == 2:
+            q, a = (f"In production, what is the effective value of the constant whose limit the crash exceeded "
+                    f"(after config overrides)? Give the number."), str(eff[cb])
+        else:
+            q, a = "By how much did the rejected value exceed its effective limit in the crash? Give the number.", str(delta)
+        out.append({"id": f"hard-{seed}-{i}", "context": ctx, "question": q, "answer": a, "kind": kind})
+    return out
+
+
 def correct(answer: str, target: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(target.lower())}(?![\w-])", answer.lower()) is not None
 
@@ -227,9 +294,9 @@ def e2e(r: dict, mbps: float, rtt_ms: float) -> float:
 
 def run(model_id: str, n: int = 60, seed: int = 20261115, conditions=CONDITIONS, out_dir: Path = Path("results/latent"),
         mbps: float = 100.0, rtt_ms: float = 17.0, ratio: float = 0.3, latent_steps: int = 20, device: str | None = None,
-        ctx_chars: int = 0, runner: "Runner | None" = None) -> dict:
+        ctx_chars: int = 0, runner: "Runner | None" = None, level: str = "easy") -> dict:
     R = runner or Runner(model_id, device)
-    tasks = make_tasks(n, seed, ctx_chars)
+    tasks = (make_hard_tasks if level == "hard" else make_tasks)(n, seed, ctx_chars)
     cfg = {"card_tokens": 60, "answer_tokens": 24, "latent_steps": latent_steps, "ratio": ratio}
     if "kvcomm" in conditions:
         cal = calibrate_kvcomm(R, make_tasks(8, seed + 1), ratio)
@@ -253,13 +320,13 @@ def run(model_id: str, n: int = 60, seed: int = 20261115, conditions=CONDITIONS,
         a = {r["task"]: r["answer"] for r in rows if r["cond"] == "text_full"}
         b = {r["task"]: r["answer"] for r in rows if r["cond"] == "kv_full"}
         summary["kv_full_vs_text_full_agreement"] = round(sum(a[t] == b[t] for t in a) / len(a), 4)
-    res = {"model": model_id, "device": R.device, "ctx_chars": ctx_chars,
+    res = {"model": model_id, "device": R.device, "ctx_chars": ctx_chars, "level": level,
            "mean_sender_tokens": round(sum(r["sender_tokens"] for r in rows) / len(rows)), "dtype": str(R.dtype), "torch": torch.__version__,
            "transformers": __import__("transformers").__version__, "n": n, "seed": seed, "cfg": cfg,
            "links": {k: [v[0] if v[0] != math.inf else "inf", v[1]] for k, v in links.items()},
            "summary": summary, "rows": rows}
     out_dir.mkdir(parents=True, exist_ok=True)
-    p = out_dir / (f"{model_id.replace('/', '_')}_n{n}_s{seed}" + (f"_ctx{ctx_chars}" if ctx_chars else "") + ".json")
+    p = out_dir / (f"{model_id.replace('/', '_')}_n{n}_s{seed}" + (f"_ctx{ctx_chars}" if ctx_chars else "") + ("_hard" if level == "hard" else "") + ".json")
     p.write_text(json.dumps(res, indent=1))
     res["path"] = str(p)
     return res

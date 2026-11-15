@@ -129,3 +129,24 @@ def test_long_context_tasks_keep_the_answer_and_grow():
         assert l["answer"] == s["answer"] and l["answer"] in l["context"] and l["question"] == s["question"]
         # filler never defines the real constants or reuses the failing function
         assert l["context"].count(f"def {s['context'].split('in ')[-1].split()[0]}(") <= 1
+
+
+def test_hard_tasks_are_multi_hop_and_derivable():
+    import re
+    from latent.bench import make_hard_tasks
+    a, b = make_hard_tasks(16, 5), make_hard_tasks(16, 5)
+    assert a == b and a != make_hard_tasks(16, 6)
+    assert {t["kind"] for t in a} == {0, 1, 2, 3}
+    for t in a:
+        ctx = t["context"]
+        bad = re.search(r'in (\w+)\nValueError: invalid \w+=(\d+)$', ctx)
+        fn, val = bad.group(1), int(bad.group(2))
+        core = ctx.split("# file:")[1]
+        const = re.search(rf"def {fn}\(\w+, ctx\):\n    if \w+ is None or \w+ > (\w+):", core).group(1)
+        eff = int(re.findall(rf"^{const} = (\d+)$", core, re.M)[-1])  # last assignment wins
+        truth = {0: fn, 1: const, 2: str(eff), 3: str(val - eff)}[t["kind"]]
+        assert t["answer"] == truth and val > eff
+        assert f"def {fn}(" in ctx.split("legacy.py")[1]  # the decoy copy exists
+        assert ctx.count("(handled, retried ok)") == 2
+    long = make_hard_tasks(4, 5, ctx_chars=20_000)
+    assert all(len(t["context"]) >= 20_000 for t in long) and [t["answer"] for t in long] == [t["answer"] for t in a[:4]]
