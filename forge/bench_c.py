@@ -110,6 +110,48 @@ def judge(ask, task: dict, attempt: dict) -> dict:
     return {"error": err}
 
 
+def turn_of(steps: list[dict], task: dict) -> list[dict]:
+    """The original turn: from the task's prompt to the next real prompt."""
+    later = [i for i in bench_b.prompts(steps) if i > task["step"]]
+    return steps[task["step"]: later[0] if later else len(steps)]
+
+
+def external_tools(turn: list[dict]) -> list[str]:
+    have = {t["function"]["name"] for t in harness.TOOLS}
+    return sorted({s["name"] for s in turn if s.get("kind") == "tool_call" and s.get("name") not in have})
+
+
+def _words(x) -> set[str]:
+    return set(re.findall(r"\w+", (x if isinstance(x, str) else json.dumps(x, ensure_ascii=False)).lower()))
+
+
+def replay_tools(turn: list[dict], schemas: dict) -> tuple[list[dict], dict]:
+    """The tools the original turn used that the harness lacks (Chrome, web, MCP servers...), answered from the
+    recording: a call gets the recorded result of the most similar original call of the same tool, unused ones
+    first. The world then looks to the agent as it did to the original session, so a task that needed apps can be
+    done instead of only described. Caveat: a call the original never made still gets the nearest recorded result."""
+    ext = set(external_tools(turn))
+    results = {s.get("id"): s for s in turn if s.get("kind") == "tool_result"}
+    recs: dict[str, list[dict]] = {}
+    for s in turn:
+        if s.get("kind") == "tool_call" and s.get("name") in ext:
+            out = results.get(s.get("id"), {}).get("output", "")
+            recs.setdefault(s["name"], []).append({"input": s.get("input"), "used": False,
+                                                   "output": out if isinstance(out, str) else json.dumps(out, ensure_ascii=False)})
+    tools, handlers = [], {}
+    for name, rs in recs.items():
+        params = schemas.get(name) or {"type": "object", "properties": {}}
+        tools.append({"type": "function", "function": {"name": name, "description": name, "parameters": params}})
+
+        def handler(args, rs=rs):
+            w = _words(args)
+            best = max(rs, key=lambda r: (not r["used"], len(w & _words(r["input"]))))
+            best["used"] = True
+            return best["output"] or "(no output)"
+        handlers[name] = handler
+    return tools, handlers
+
+
 def missing_tools_note(steps: list[dict]) -> str:
     have = {t["function"]["name"] for t in harness.TOOLS}
     used = sorted({s["name"] for s in steps if s.get("kind") == "tool_call" and s.get("name") not in have})
@@ -120,7 +162,8 @@ def missing_tools_note(steps: list[dict]) -> str:
 
 
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
-             max_steps: int = 15, wall_seconds: int = 600) -> dict:
+             max_steps: int = 15, wall_seconds: int = 600, schemas: dict | None = None) -> dict:
+    """schemas given = replay mode: the original turn's app/web tools are available, answered from the recording."""
     root = Path(root)
     if task.get("repo") and Path(task["repo"], ".git").exists():
         commit = bench_b._git("rev-list", "-1", f"--before={task['ts']}", "HEAD", cwd=task["repo"]).strip()
@@ -136,12 +179,18 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
         prompt = task["prompt"]
         if home:
             history, prompt = bench_b._rewrite(history, home, str(wd)), bench_b._rewrite(prompt, home, str(wd))
-        system = (f"You are an agent working on the user's Mac. Your work folder is {wd}. There is no network "
-                  "and no apps in this run: when a step would need them, say exactly what you would do and with "
-                  "what inputs. Finish with a final message to the user, then call done."
-                  + missing_tools_note(steps[: task["step"]]))
+        tools, handlers = (replay_tools(turn_of(steps, task), schemas) if schemas is not None else ([], {}))
+        if tools:
+            system = (f"You are an agent working on the user's Mac. Your work folder is {wd}. Besides the file and "
+                      "shell tools you have the user's app and web tools (" + ", ".join(t["function"]["name"] for t in tools)
+                      + "). Use them to actually do what the user asks. Finish with a final message to the user, then call done.")
+        else:
+            system = (f"You are an agent working on the user's Mac. Your work folder is {wd}. There is no network "
+                      "and no apps in this run: when a step would need them, say exactly what you would do and with "
+                      "what inputs. Finish with a final message to the user, then call done."
+                      + missing_tools_note(steps[: task["step"]]))
         run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds,
-                                force_final=True)
+                                force_final=True, tools=harness.TOOLS + tools if tools else None, handlers=handlers)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
     if run.get("infra_error"):  # the model never answered: do not judge, rerun later
@@ -160,7 +209,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
 
 
 def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = net.SYNC_OLLAMA,
-        limit: int | None = None, seed: int = 0) -> Path:
+        limit: int | None = None, seed: int = 0, replay: bool = False) -> Path:
     snapshot = Path(snapshot)
     tasks = tasks_for(snapshot)
     tasks = tasks[:limit] if limit else tasks
@@ -168,19 +217,30 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     settings = {"sampling": backends.sampling(model), "max_tokens": backends.MAX_TOKENS, "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
                 "num_ctx": harness.NUM_CTX, "history_chars": harness.HISTORY_CHARS, "forced_final": True,
                 "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
-    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / "bench_c.json"
+    if replay:
+        settings["replay_tools"] = True
+    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / ("bench_c_replay.json" if replay else "bench_c.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
     done = ({r["id"]: r for r in prev.get("tasks", []) if r.get("status", "ok") != "infra_error"}
             if prev.get("settings") == settings else {})
     record = {"model": backends.record(model), "judge": bench_a.model_digest(base_url, judge_model)}
     chat, ask = backends.chat(model, seed=seed), ollama_json(judge_model, base_url, seed=seed)
+    schemas = json.loads((snapshot / "tools.json").read_text()) if replay else None
     rows = []
     for task in tasks:
-        rows.append(done.get(task["id"]) or run_task(task, trajs[task["file"]]["steps"], chat, ask))
+        steps = trajs[task["file"]]["steps"]
+        row = done.get(task["id"]) or run_task(task, steps, chat, ask, schemas=schemas if replay else None)
+        row["external_tools"] = external_tools(turn_of(steps, task))
+        rows.append(row)
         _save(out, model, snapshot, settings, record, rows)
     _save(out, model, snapshot, settings, record, rows)
     return out
+
+
+def _subset(rows: list[dict]) -> dict:
+    g = [r["grade"]["overall"] for r in rows if "overall" in r.get("grade", {})]
+    return {"tasks": len(g), "overall": round(sum(g) / len(g), 3) if g else None, "ci95_overall": mean_ci(g)}
 
 
 def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, rows: list[dict]) -> None:
@@ -196,5 +256,7 @@ def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, r
                           "ci95_overall": mean_ci([g["overall"] for g in graded]),
                           "null_control_overall": round(sum(nulls) / len(nulls), 3) if nulls else None,
                           "mean_seconds": round(sum(r["seconds"] for r in rows_ok) / len(rows_ok), 1) if rows_ok else None},
+              # tasks whose original turn used only file/shell tools: the part a no-apps run can fully do
+              "offline": _subset([r for r in rows_ok if r.get("external_tools") == []]),
               "tasks": rows}
     out.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")

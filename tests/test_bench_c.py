@@ -83,3 +83,28 @@ def test_forced_final_retries_a_textual_tool_call(tmp_path):
     run = harness.run_agent(lambda m, t: next(replies), "sys", [], "do it", tmp_path, max_steps=1, force_final=True)
     assert run["transcript"][-1]["assistant"] == "I listed the folder; it was empty."
     assert harness.strip_tool_markup("ok <tool_call><function=X></tool_call> done") == "ok  done"
+
+
+def test_replay_tools_answer_from_the_recording():
+    from forge import bench_c
+    turn = [{"kind": "user_prompt", "text": "group my tabs"},
+            {"kind": "tool_call", "id": "a", "name": "mcp__chrome__list_pages", "input": {}},
+            {"kind": "tool_result", "id": "a", "output": "1: rossmann cart\n2: zalando cart"},
+            {"kind": "tool_call", "id": "b", "name": "mcp__chrome__evaluate_script", "input": {"function": "group tabs 1 2"}},
+            {"kind": "tool_result", "id": "b", "output": "grouped 2 tabs"},
+            {"kind": "tool_call", "id": "c", "name": "mcp__chrome__evaluate_script", "input": {"function": "read title"}},
+            {"kind": "tool_result", "id": "c", "output": "Rossmann"},
+            {"kind": "tool_call", "id": "d", "name": "Bash", "input": {"command": "ls"}},
+            {"kind": "tool_result", "id": "d", "output": "x"}]
+    assert bench_c.external_tools(turn) == ["mcp__chrome__evaluate_script", "mcp__chrome__list_pages"]
+    tools, h = bench_c.replay_tools(turn, {"mcp__chrome__list_pages": {"type": "object", "properties": {}}})
+    assert {t["function"]["name"] for t in tools} == {"mcp__chrome__evaluate_script", "mcp__chrome__list_pages"}
+    assert h["mcp__chrome__list_pages"]({}) == "1: rossmann cart\n2: zalando cart"
+    assert h["mcp__chrome__evaluate_script"]({"function": "group the tabs 1 and 2"}) == "grouped 2 tabs"  # most similar
+    assert h["mcp__chrome__evaluate_script"]({"function": "group again"}) == "Rossmann"  # unused ones first
+
+
+def test_offline_subset():
+    from forge import bench_c
+    rows = [{"grade": {"overall": 4}, "external_tools": []}, {"grade": {"overall": 2}, "external_tools": []}]
+    assert bench_c._subset(rows) == {"tasks": 2, "overall": 3.0, "ci95_overall": bench_c.mean_ci([4, 2])}
