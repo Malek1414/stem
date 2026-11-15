@@ -12,3 +12,8 @@ Task: "only have one phone for now adapt" (hoopergpt, 2 Swift files).
 
 Reading: tool use works end to end; the base model loops on long, noisy build output instead of acting.
 This is one task, so it says nothing about the overall rate (95% interval for 0/1 is 0 to 0.79).
+
+## 2026-11-15 · publish · snapshot v0002
+
+Private HF dataset `malekhassan23/agent-forge-data`, revision 100981de096317e2126b23b761f7d6700f974a39.
+6 files checked against the manifest (5 outputs + raw.tar.gz): 0 mismatches. Repo confirmed private.
