@@ -16,6 +16,14 @@ from typing import Callable
 
 ChatFn = Callable[[list[dict], list[dict]], dict]
 
+# Harness v2 (2026-11-15): fixed context window for every model (HF GGUFs otherwise get Ollama's small default),
+# longer rendered history, and an optional forced final reply when the step budget runs out.
+HARNESS_VERSION = 2
+NUM_CTX = 65_536
+HISTORY_CHARS = 96_000
+FINAL_PROMPT = ("Your step budget is used up. Reply to the user now with your final answer: what you did, what you "
+                "found, and what you would do next. No more tool calls.")
+
 # Claude Code's own tool names and argument names: the session history the model sees uses them, and
 # so does the training data. Lower-case aliases are accepted too.
 TOOLS = [
@@ -107,7 +115,8 @@ class Budget:
 
 def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workdir: Path,
               max_steps: int = 30, wall_seconds: int = 900, tools: list[dict] | None = None,
-              handlers: dict[str, Callable[[dict], str]] | None = None, budget: Budget | None = None) -> dict:
+              handlers: dict[str, Callable[[dict], str]] | None = None, budget: Budget | None = None,
+              force_final: bool = False) -> dict:
     """tools: the tool list this agent may use (default: all of TOOLS). handlers: extra tools implemented by the
     caller (e.g. handoff). budget: shared with other agents on the same task; default is a private one."""
     tools = TOOLS if tools is None else tools
@@ -158,12 +167,22 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
                 break
         if finished:
             break
+    forced = False
+    has_text = any(t.get("assistant") for t in transcript[-1:])
+    if force_final and infra_error is None and not has_text:
+        try:  # one tool-free turn so a model that ran out of steps still answers the user
+            reply = chat(msgs + [{"role": "user", "content": FINAL_PROMPT}], [])
+            transcript.append({"assistant": reply.get("content", ""), "calls": [], "forced_final": True})
+            forced = True
+        except Exception as e:
+            transcript.append({"error": repr(e), "infra": True})
+            infra_error = repr(e)
     return {"finished": finished, "steps": steps, "seconds": round(time.time() - t0, 1), "transcript": transcript,
-            "infra_error": infra_error}
+            "infra_error": infra_error, "forced_final": forced}
 
 
 def ollama_chat(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0,
-                num_ctx: int | None = None, timeout: int = 900) -> ChatFn:
+                num_ctx: int | None = NUM_CTX, timeout: int = 900) -> ChatFn:
     def chat(messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": model, "messages": messages, "tools": tools, "stream": False,
                 "options": {"temperature": 0, "seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {})}

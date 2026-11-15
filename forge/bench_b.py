@@ -163,7 +163,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, root: Path = W
     """chat alone: single agent. chat + coder: chat is the operator, coder gets task cards (forge.duo)."""
     wd = prepare(task, root)
     try:
-        history = _rewrite(bench_a.render(steps[: task["step"]]), task["repo"], str(wd))
+        history = _rewrite(bench_a.render(steps[: task["step"]], budget_chars=harness.HISTORY_CHARS), task["repo"], str(wd))
         system = (f"You are a coding agent. The repository {Path(task['repo']).name} is checked out at {wd}. "
                   "Work only inside that folder. There is no network. Use the tools to make the change the "
                   "user asks for, then call done.")
@@ -194,7 +194,8 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
     settings = {"temperature": 0, "seed": seed, "max_steps": max_steps, "wall_seconds": wall_seconds,
-                "similar": SIMILAR, "history_budget_chars": 32_000}
+                "similar": SIMILAR, "history_budget_chars": harness.HISTORY_CHARS, "harness": harness.HARNESS_VERSION,
+                "num_ctx": harness.NUM_CTX}
     name = model if coder is None else f"{model}+{coder}"  # operator+coder pairs get their own results folder
     settings |= {"coder": coder} if coder else {}
     out = RESULTS / re.sub(r"[^A-Za-z0-9._+-]", "_", name) / snapshot.name / "bench_b.json"

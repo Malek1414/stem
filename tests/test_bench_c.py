@@ -51,3 +51,25 @@ def test_unreachable_model_is_not_judged(tmp_path):
     judged = []
     r = bench_c.run_task(task, t["steps"], down, lambda p: judged.append(p) or {}, root=tmp_path)
     assert r["status"] == "infra_error" and judged == []
+
+
+def test_budget_exhaustion_forces_a_final_reply(tmp_path):
+    from forge import harness
+    seen_tools = []
+
+    def chat(msgs, tools):
+        seen_tools.append(len(tools))
+        if not tools:  # the forced final turn has no tools
+            return {"role": "assistant", "content": "Final: here is what I found."}
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "Bash", "arguments": {"command": "true"}}}]}
+
+    r = harness.run_agent(chat, "sys", [], "do it", tmp_path, max_steps=3, force_final=True)
+    assert r["transcript"][-1]["assistant"] == "Final: here is what I found." and seen_tools[-1] == 0
+    assert r["forced_final"] is True
+
+
+def test_missing_tools_are_named_in_the_system_prompt():
+    steps = [{"kind": "tool_call", "name": "mcp__chrome-real__click", "input": {}},
+             {"kind": "tool_call", "name": "Bash", "input": {}}, {"kind": "tool_call", "name": "WebFetch", "input": {}}]
+    note = bench_c.missing_tools_note(steps)
+    assert "mcp__chrome-real__click" in note and "WebFetch" in note and "Bash" not in note

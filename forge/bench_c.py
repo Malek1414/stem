@@ -110,6 +110,15 @@ def judge(ask, task: dict, attempt: dict) -> dict:
     return {"error": err}
 
 
+def missing_tools_note(steps: list[dict]) -> str:
+    have = {t["function"]["name"] for t in harness.TOOLS}
+    used = sorted({s["name"] for s in steps if s.get("kind") == "tool_call" and s.get("name") not in have})
+    if not used:
+        return ""
+    return (" These tools from the original session do not exist in this run: " + ", ".join(used[:40])
+            + ". Do not call them; say exactly what you would do with them instead.")
+
+
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
              max_steps: int = 15, wall_seconds: int = 600) -> dict:
     root = Path(root)
@@ -123,14 +132,16 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
         wd.mkdir(parents=True)
         home = None
     try:
-        history = bench_a.render(steps[: task["step"]])
+        history = bench_a.render(steps[: task["step"]], budget_chars=harness.HISTORY_CHARS)
         prompt = task["prompt"]
         if home:
             history, prompt = bench_b._rewrite(history, home, str(wd)), bench_b._rewrite(prompt, home, str(wd))
         system = (f"You are an agent working on the user's Mac. Your work folder is {wd}. There is no network "
                   "and no apps in this run: when a step would need them, say exactly what you would do and with "
-                  "what inputs. Finish with a final message to the user, then call done.")
-        run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds)
+                  "what inputs. Finish with a final message to the user, then call done."
+                  + missing_tools_note(steps[: task["step"]]))
+        run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds,
+                                force_final=True)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
     if run.get("infra_error"):  # the model never answered: do not judge, rerun later
@@ -154,7 +165,8 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     tasks = tasks_for(snapshot)
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
-    settings = {"temperature": 0, "seed": seed, "max_steps": 15, "wall_seconds": 600,
+    settings = {"temperature": 0, "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
+                "num_ctx": harness.NUM_CTX, "history_chars": harness.HISTORY_CHARS, "forced_final": True,
                 "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_c.json"
     out.parent.mkdir(parents=True, exist_ok=True)
