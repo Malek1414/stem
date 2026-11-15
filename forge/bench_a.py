@@ -13,7 +13,7 @@ import urllib.request
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from . import segment as sg
+from . import net, segment as sg
 from .stats import wilson
 
 REPO = Path(__file__).resolve().parent.parent
@@ -130,14 +130,14 @@ def score(gold: dict, pred: dict | None) -> dict:
 
 def _post(url: str, body: dict, timeout: int = 600) -> dict:
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with net.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
 
 
 def model_digest(base_url: str, model: str) -> dict:
-    with urllib.request.urlopen(f"{base_url}/api/tags", timeout=300) as r:
+    with net.urlopen(f"{base_url}/api/tags", timeout=300) as r:
         tags = json.loads(r.read())
-    with urllib.request.urlopen(f"{base_url}/api/version", timeout=300) as r:
+    with net.urlopen(f"{base_url}/api/version", timeout=300) as r:
         version = json.loads(r.read()).get("version")
     names = {model, model if ":" in model else f"{model}:latest"}
     m = next((x for x in tags.get("models", []) if x.get("name") in names or x.get("model") in names), {})
@@ -145,7 +145,7 @@ def model_digest(base_url: str, model: str) -> dict:
             "runtime": "ollama", "runtime_version": version}
 
 
-def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", n: int = 300,
+def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, n: int = 300,
         limit: int | None = None, num_ctx: int | None = None, seed: int = 0) -> Path:
     snapshot = Path(snapshot)
     registry = json.loads((snapshot / "tools.json").read_text())

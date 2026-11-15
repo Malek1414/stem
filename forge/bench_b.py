@@ -18,7 +18,7 @@ import subprocess
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from . import bench_a, harness
+from . import net, bench_a, harness
 from .stats import wilson
 
 REPO = Path(__file__).resolve().parent.parent
@@ -179,7 +179,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, root: Path = W
             "transcript": run["transcript"]}
 
 
-def run(snapshot: Path, model: str, base_url: str = "http://localhost:11434", limit: int | None = None,
+def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int | None = None,
         match: str | None = None, seed: int = 0, max_steps: int = 30, wall_seconds: int = 900) -> Path:
     snapshot = Path(snapshot)
     tasks = [t for t in tasks_for(snapshot) if not match or match.lower() in t["prompt"].lower()]

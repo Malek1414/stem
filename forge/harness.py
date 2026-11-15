@@ -9,6 +9,8 @@ import json
 import subprocess
 import time
 import urllib.request
+
+from . import net
 from pathlib import Path
 from typing import Callable
 
@@ -129,13 +131,13 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
     return {"finished": finished, "steps": steps, "seconds": round(time.time() - t0, 1), "transcript": transcript}
 
 
-def ollama_chat(model: str, base_url: str = "http://localhost:11434", seed: int = 0,
+def ollama_chat(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0,
                 num_ctx: int | None = None, timeout: int = 900) -> ChatFn:
     def chat(messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": model, "messages": messages, "tools": tools, "stream": False,
                 "options": {"temperature": 0, "seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {})}
         req = urllib.request.Request(f"{base_url}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with net.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read())["message"]
     return chat

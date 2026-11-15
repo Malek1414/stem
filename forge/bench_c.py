@@ -15,7 +15,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from . import bench_a, bench_b, harness
+from . import bench_a, bench_b, harness, net
 from .stats import mean_ci
 
 REPO = Path(__file__).resolve().parent.parent
@@ -82,14 +82,14 @@ def tasks_for(snapshot: Path, n: int = 20) -> list[dict]:
     return tasks
 
 
-def ollama_json(model: str, base_url: str = "http://localhost:11434", seed: int = 0, timeout: int = 900):
+def ollama_json(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0, timeout: int = 900):
     def ask(prompt: str) -> dict:
         body = {"model": model, "stream": False, "format": "json",
                 "messages": [{"role": "system", "content": RUBRIC}, {"role": "user", "content": prompt}],
                 "options": {"temperature": 0, "seed": seed}}
         req = urllib.request.Request(f"{base_url}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with net.urlopen(req, timeout=timeout) as r:
             return json.loads(json.loads(r.read())["message"]["content"])
     return ask
 
@@ -145,7 +145,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
             "steps": run["steps"], "seconds": run["seconds"]}
 
 
-def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = "http://localhost:11434",
+def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = net.SYNC_OLLAMA,
         limit: int | None = None, seed: int = 0) -> Path:
     snapshot = Path(snapshot)
     tasks = tasks_for(snapshot)

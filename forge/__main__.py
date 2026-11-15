@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import bench_a, bench_b, bench_c, snapshot
+from . import net, bench_a, bench_b, bench_c, snapshot
 
 
 def main(argv=None) -> int:
@@ -32,21 +32,21 @@ def main(argv=None) -> int:
     b = sub.add_parser("bench-a")
     b.add_argument("snapshot")
     b.add_argument("--model", required=True)
-    b.add_argument("--base-url", default="http://localhost:11434")
+    b.add_argument("--base-url", default=net.SYNC_OLLAMA)
     b.add_argument("--n", type=int, default=300)
     b.add_argument("--limit", type=int)
     b.add_argument("--num-ctx", type=int)
     bb = sub.add_parser("bench-b")
     bb.add_argument("snapshot")
     bb.add_argument("--model", required=True)
-    bb.add_argument("--base-url", default="http://localhost:11434")
+    bb.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bb.add_argument("--limit", type=int)
     bb.add_argument("--match", help="only tasks whose prompt contains this text")
     bc = sub.add_parser("bench-c")
     bc.add_argument("snapshot")
     bc.add_argument("--model", required=True)
     bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
-    bc.add_argument("--base-url", default="http://localhost:11434")
+    bc.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bc.add_argument("--limit", type=int)
     cp = sub.add_parser("compare")
     cp.add_argument("snapshot")
