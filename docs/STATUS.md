@@ -13,7 +13,7 @@ ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never
 
 ## Queue
 
-- [ ] Read results/qwen3-coder-next-abliterated-128k/v0002/bench_b.json (the "one phone" rerun after the
+- [x] Read results/qwen3-coder-next-abliterated-128k/v0002/bench_b.json (the "one phone" rerun after the
       tool-name fix). Record score, checks, steps, seconds and whether the model now used Bash/Read/Edit
       in docs/RESULTS.md. If it failed for a harness reason, fix the harness, add a test, rerun once.
 - [ ] Read results/published.jsonl. Confirm v0002 is on the private repo malekhassan23/agent-forge-data
