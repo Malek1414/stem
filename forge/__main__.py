@@ -42,6 +42,7 @@ def main(argv=None) -> int:
     bb.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bb.add_argument("--limit", type=int)
     bb.add_argument("--match", help="only tasks whose prompt contains this text")
+    bb.add_argument("--coder", help="run as operator (--model) + coder (this model) with task-card handoffs")
     bc = sub.add_parser("bench-c")
     bc.add_argument("snapshot")
     bc.add_argument("--model", required=True)
@@ -77,7 +78,7 @@ def main(argv=None) -> int:
         print(json.dumps({"overall": r["overall"], "by_agent": r["by_agent"]}, indent=1))
         return 0
     if a.cmd == "bench-b":
-        out = bench_b.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit, match=a.match)
+        out = bench_b.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit, match=a.match, coder=a.coder)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0

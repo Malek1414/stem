@@ -95,15 +95,32 @@ class Workspace:
             return f"error: {e}"
 
 
+class Budget:
+    """Steps and wall time shared by every agent working on one task (equal-budget comparisons)."""
+
+    def __init__(self, max_steps: int, wall_seconds: float):
+        self.steps_left, self.deadline, self.t0 = max_steps, time.time() + wall_seconds, time.time()
+
+    def ok(self) -> bool:
+        return self.steps_left > 0 and time.time() < self.deadline
+
+
 def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workdir: Path,
-              max_steps: int = 30, wall_seconds: int = 900) -> dict:
+              max_steps: int = 30, wall_seconds: int = 900, tools: list[dict] | None = None,
+              handlers: dict[str, Callable[[dict], str]] | None = None, budget: Budget | None = None) -> dict:
+    """tools: the tool list this agent may use (default: all of TOOLS). handlers: extra tools implemented by the
+    caller (e.g. handoff). budget: shared with other agents on the same task; default is a private one."""
+    tools = TOOLS if tools is None else tools
+    allowed = {t["function"]["name"] for t in tools}
+    handlers = handlers or {}
+    budget = budget or Budget(max_steps, wall_seconds)
     ws = Workspace(workdir)
     msgs = [{"role": "system", "content": system}, *history, {"role": "user", "content": prompt}]
     transcript, t0, steps, finished = [], time.time(), 0, False
     infra_error = None
-    while steps < max_steps and time.time() - t0 < wall_seconds:
+    while budget.ok():
         try:
-            reply = chat(msgs, TOOLS)
+            reply = chat(msgs, tools)
         except Exception as e:  # the model never answered: an infrastructure failure, not a model failure
             transcript.append({"error": repr(e), "infra": True})
             infra_error = repr(e)
@@ -122,12 +139,23 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
                 except json.JSONDecodeError:
                     args = {}
             steps += 1
-            if fn["name"] == "done":
+            budget.steps_left -= 1
+            name = ALIASES.get(fn["name"], fn["name"])
+            if name == "done":
                 finished = True
+                transcript[-1]["done"] = str(args.get("summary", ""))
                 break
-            out = ws.call(fn["name"], args)
+            if name not in allowed:
+                out = (f"error: {fn['name']} is not available to you. Your tools: "
+                       + ", ".join(sorted(allowed)))
+            elif name in handlers:
+                out = handlers[name](args)
+            else:
+                out = ws.call(name, args)
             transcript[-1].setdefault("results", []).append(out[:2_000])
             msgs.append({"role": "tool", "content": out})
+            if not budget.ok():
+                break
         if finished:
             break
     return {"finished": finished, "steps": steps, "seconds": round(time.time() - t0, 1), "transcript": transcript,
