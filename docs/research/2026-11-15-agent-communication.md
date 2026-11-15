@@ -101,6 +101,8 @@ Implication for operator/coder: a split pays off when (1) the operator would oth
 | 8 | Shared-KV between operator and coder if both are fine-tunes of one base (DroidSpeak/KVCOMM style) | Implement after training | Only worthwhile on vLLM/transformers, and the hybrid Qwen3-Next layers are unsupported by the papers; revisit after the coder base is chosen. |
 | 9 | C2C / Interlat / XBridge fuser between different bases | Not worth it now | Per-pair training on 100k+ samples, no tool-use evidence, white-box only, small models only; gain over good text about 3-5 points. |
 | 10 | LatentMAS-style latent thoughts | Not worth it now | Training-free but same-model, reasoning benchmarks only, no audit trail, no Ollama; our messages are short. |
+
+**Update 2026-11-15:** Malek overrode rows 8 and 10 ("ignore the research on not implementing [latent], it is important for me"). Training-free KV handoff, KVComm layer selection and LatentMAS are implemented in `latent/` and measured by `python -m latent bench`; the reservations above stay as hypotheses the benchmark tests. Row 9 (trained fusers) remains deferred: no training data of the right kind yet.
 | 11 | Topology search (AgentPrune, AgentDropout, G-Designer) | Not worth it | They prune graphs of 4+ agents; a two-node link has nothing to prune. |
 | 12 | Custom compressed dialect between our agents and other people's Claudes | Not worth it | 2609.06129 shows compression can cost more (parse failures, +8-11% tokens) and needs both sides to agree; closed models cannot join latent schemes at all. |
 
