@@ -129,3 +129,8 @@ def test_card_validation():
         cards.TaskCard.from_dict({"goal": "g", "done_criteria": {}})
     with pytest.raises(ValueError):
         cards.progress_message("id", "teleported")
+
+
+def test_name_persists_across_restarts(tmp_path):
+    State(tmp_path / "n", name="malek")
+    assert State(tmp_path / "n").settings["name"] == "malek"

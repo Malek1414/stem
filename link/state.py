@@ -32,9 +32,10 @@ class State:
             key.write_bytes(iroh.SecretKey.generate().to_bytes())
             os.chmod(key, 0o600)
         self.secret = iroh.SecretKey.from_bytes(key.read_bytes())
+        fresh = not (self.home / "settings.json").exists()
         self.settings = self._load("settings.json", {"name": name or "me", "mode": "p2p", "relay_url": None})
-        if name and self.settings.get("name") != name:
-            self.settings["name"] = name
+        if fresh or (name and self.settings.get("name") != name):
+            self.settings["name"] = name or self.settings["name"]
             _write(self.home / "settings.json", self.settings)
 
     # --- small JSON stores -------------------------------------------------------------------
