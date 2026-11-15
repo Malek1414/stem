@@ -75,6 +75,8 @@ Old greedy partial results: results/qwen36-ablit/v0002/bench_c.greedy-harness-v2
 bench C; ~/agent-forge/coder_after_judge.sh restarts it once Ollama has unloaded the judge (B and D need no judge).
 If queue4 waits on port 8084 and the judge is gone, run `svc.sh start af-coder-h` by hand. Coder bench C done:
 2.263 (1.75-2.78), 19 graded, 1 infra error (rerun it later: bench-c resumes and reruns infra rows).
+00:51: operator (Holo4-heretic) bench C done: 1.90 (1.37-2.43), 20 graded, 0 infra errors. coder_after_judge.sh
+restarted af-coder-h (60 GB free); queue4 is on bench-b coder-h (started 00:14).
 - [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
       bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
       "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
