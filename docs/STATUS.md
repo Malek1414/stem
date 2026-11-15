@@ -49,6 +49,11 @@ through Sync tunnels (`nvsync open malekhassan <port>`; forge reopens forgotten 
 121 GB; operator+coder ~46 GB, Ollama judge gpt-oss:120b 65 GB, old model 52 GB: never all at once.
 
 Check each hour, in order, and do the first thing that applies:
+- [x] L. (skipped 22:25: malekhassan is not in sudoers; only the Spark admin can enable linger. After a Spark reboot run
+      `~/agent-forge/svc.sh start link af-operator af-coder`.) Linger: Malek said he would run `sudo loginctl enable-linger malekhassan` on the Spark. The autostart
+      symlink of agent-forge-link.service was removed (22:10) so systemd does not start a second link daemon. Once
+      `loginctl show-user malekhassan -p Linger` says yes: `~/agent-forge/svc.sh stop link && XDG_RUNTIME_DIR=/run/user/$(id -u)
+      systemctl --user enable --now agent-forge-link` (link survives reboots again). Leave the llama-servers on svc.sh.
 - [x] A0. (done 22:00: productive, see RESULTS.md) Hard latent pilot (results/latent/Qwen_Qwen3-8B_n40_s20261115_hard.json): add to RESULTS.md next to the
       sweep. Productive = text_full well off ceiling and off the floor, and conditions differ beyond the CI.
 - [x] A. (done 21:50, see RESULTS.md) Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):
@@ -59,19 +64,30 @@ Check each hour, in order, and do the first thing that applies:
       Old notes: if the llama.cpp build failed (llamacpp_build.log), fix and rebuild
       (PATH=/usr/local/cuda/bin, CUDACXX, -DCMAKE_CUDA_ARCHITECTURES=121, -j 4), then rerun launch_servers.sh.
       If af-operator/af-coder fail to start (~/agent-forge/logs/af-coder.log), fix flags (e.g. drop --mmproj, lower -c).
-- [ ] C. Mac queue work/queue3.sh (log work/queue3.log): if not running and not "queue3 done", restart it with
-      `nohup caffeinate -i work/queue3.sh > work/queue3.log 2>&1 &` (benches resume from saved results and rerun
-      infra_error rows). If a job ended with only infra errors, find out why (curl sync://8082/v1/chat/completions
-      by hand), fix, rerun that job.
-- [ ] D. When queue3 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
+Changes at 22:40 (read first): queue3 was stopped. Its coder runs looped and one call generated 29,400 tokens
+(runaway thinking filled the 64k context). Fixes (commit f166b06 + follow-up): sampling per model card (Qwen3.x
+0.6/0.95/top_k 20/presence 1.5, not greedy), max 4096 new tokens per call, no signals outside the sandbox, a retry
+when the forced final answer is a textual tool call. Coder swapped to Heretic Qwen3.6 (af-coder-h, port 8084,
+llamacpp:8084@qwen36-heretic); Huihui (af-coder, 8082) is stopped and gets the same benchmarks in F for comparison.
+Old greedy partial results: results/qwen36-ablit/v0002/bench_c.greedy-harness-v2.json (3 tasks, 1.33).
+
+- [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
+      bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
+      "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
+      from saved results when settings match, and rerun infra_error rows). If a job ended with only infra errors,
+      find out why (curl the server through its Sync port by hand), fix, rerun that job. If the Spark's servers are
+      down: `~/agent-forge/svc.sh status`, `svc.sh start af-operator af-coder-h`.
+- [ ] D. When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
       + null control, D accuracy + seconds), compare with the baseline, commit.
-- [ ] D2. With af-operator/af-coder stopped (start of E, before the Ollama reruns load): on the Spark run
+- [ ] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
       `cd ~/agent-forge && PYTHONPATH=$HOME/agent-forge HF_HUB_OFFLINE=1 setsid nohup ~/vllm-nano/.venv/bin/python -m latent bench --model Qwen/Qwen3-8B --n 200 --seed 7 --level hard --conditions text_full,text_card,kv_full,kv_q8,kv_goal,latentmas > hard200.log 2>&1 &`
-      (~1 h, ~20 GB), wait for it to end before starting E's Ollama runs, record per-kind accuracy for kinds 1-3.
-- [ ] E. Then, on the Spark: `~/agent-forge/svc.sh stop af-operator af-coder`; on the Mac run harness-v2 baseline reruns
-      via Ollama: `python -m forge bench-c data/snapshots/v0002 --model qwen3-coder-next-abliterated-128k` then bench-b
-      (same model). Record in RESULTS.md, commit.
-- [ ] F. Then: `~/agent-forge/svc.sh start af-dense`, `nvsync open malekhassan 8083`, run bench-c and bench-b with
-      --model llamacpp:8083@qwen38-ablit; then `svc.sh stop af-dense`; record; commit.
-- [ ] G. Then `svc.sh start af-operator af-coder` and leave a short summary at the top of docs/RESULTS.md for Malek
+      (~1 h, ~20 GB); when it ends record per-kind accuracy for kinds 1-3 in RESULTS.md.
+- [ ] E. Old model rerun with the same settings (Ollama, Spark servers stay stopped): on the Mac
+      `python -m forge bench-c data/snapshots/v0002 --model qwen3-coder-next-abliterated-128k` then bench-b (same
+      model). Unload it afterwards (`curl sync://ollama/api/generate -d '{"model":"...","keep_alive":0}'`). Record, commit.
+- [ ] F. Coder comparison, one server at a time: `svc.sh start af-coder` (Huihui, 8082): bench-c and bench-b with
+      --model llamacpp:8082@qwen36-ablit; `svc.sh stop af-coder`. Then `svc.sh start af-dense`,
+      `nvsync open malekhassan 8083`, bench-c and bench-b with --model llamacpp:8083@qwen38-ablit; `svc.sh stop af-dense`.
+      Record; commit.
+- [ ] G. Then `svc.sh start af-operator <best coder>` and leave a short summary at the top of docs/RESULTS.md for Malek
       (what is best per role, by how much, what failed). Delete the watcher cron job.

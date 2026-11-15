@@ -200,7 +200,7 @@ def ollama_chat(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0,
 
     def chat(messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": model, "messages": messages, "tools": tools, "stream": False,
-                "options": opts | {"seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {})}
+                "options": opts | {"seed": seed, "num_predict": 4096} | ({"num_ctx": num_ctx} if num_ctx else {})}
         req = urllib.request.Request(f"{base_url}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         with net.urlopen(req, timeout=timeout) as r:

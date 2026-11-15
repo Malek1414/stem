@@ -66,8 +66,10 @@ def from_openai(reply: dict) -> dict:
 # repetition, which we saw (the same command 16 times in a row at temperature 0). A fixed seed keeps runs reproducible.
 SAMPLING = {
     "qwen3-coder": {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "repeat_penalty": 1.05},  # Qwen3-Coder(-Next) card
-    "qwen3": {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0},  # Qwen3.x thinking, precise/coding tasks
+    "qwen3": {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.5},  # Qwen3.x cards
 }
+# One call once generated 29,400 tokens (thinking ran away) and filled the 64k context; cap every call.
+MAX_TOKENS = 4096
 GREEDY = {"temperature": 0}
 
 
@@ -83,7 +85,7 @@ def openai_chat(base_url: str, seed: int = 0, timeout: int = 900, params: dict |
     params = dict(GREEDY if params is None else params)
 
     def chat(messages: list[dict], tools: list[dict]) -> dict:
-        body = {"messages": to_openai(messages), **params, "seed": seed, "stream": False}
+        body = {"messages": to_openai(messages), **params, "seed": seed, "stream": False, "max_tokens": MAX_TOKENS}
         if tools:
             body["tools"] = tools
         req = urllib.request.Request(f"{base_url}/v1/chat/completions", data=json.dumps(body).encode(),
