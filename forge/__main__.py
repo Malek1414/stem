@@ -6,6 +6,7 @@ bench-a <snapshot> --model M        run benchmark A against an Ollama endpoint
 bench-b <snapshot> --model M        run benchmark B (sandboxed task replay)
 bench-b-tasks <snapshot>            build and freeze benchmark B tasks, print a summary
 bench-c <snapshot> --model M        run benchmark C (judged outcomes, pinned local judge)
+publish <snapshot> [--repo R]       copy a snapshot to a private HF dataset repo and verify hashes
 """
 from __future__ import annotations
 
@@ -46,6 +47,9 @@ def main(argv=None) -> int:
     bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
     bc.add_argument("--base-url", default="http://localhost:11434")
     bc.add_argument("--limit", type=int)
+    pb = sub.add_parser("publish")
+    pb.add_argument("snapshot")
+    pb.add_argument("--repo")
     bt = sub.add_parser("bench-b-tasks")
     bt.add_argument("snapshot")
     a = ap.parse_args(argv)
@@ -76,6 +80,15 @@ def main(argv=None) -> int:
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0
+    if a.cmd == "publish":
+        from . import publish
+        r = publish.publish(Path(a.snapshot), a.repo)
+        log = Path(__file__).resolve().parent.parent / "results" / "published.jsonl"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with open(log, "a") as fh:
+            fh.write(json.dumps({"snapshot": Path(a.snapshot).name, **r}) + "\n")
+        print(json.dumps(r, indent=1))
+        return 1 if r["mismatches"] else 0
     if a.cmd == "bench-b-tasks":
         for t in bench_b.tasks_for(Path(a.snapshot)):
             files = ", ".join(f"{r}{'' if f['expected'] is not None else ' (changed-only)'}" for r, f in t["files"].items())
