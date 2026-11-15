@@ -145,8 +145,10 @@ def ollama_vision(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0, ti
 def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int | None = None, ask=None) -> Path:
     from .bench_a import model_digest
     items = items_for(snapshot)[:limit] if limit else items_for(snapshot)
-    use_ollama = ask is None
-    ask = ask or ollama_vision(model, base_url)
+    use_backend = ask is None
+    if ask is None:
+        from .backends import vision
+        ask = vision(model)
     rows = []
     for it in items:
         t = time.time()
@@ -159,13 +161,14 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     ok = [r for r in rows if r.get("status") != "infra_error"]
     k = sum(r["pass"] for r in ok)
     report = {"benchmark": "D", "model": model, "snapshot": Path(snapshot).name,
-              "model_record": model_digest(base_url, model) if use_ollama else None,
+              "model_record": __import__("forge.backends", fromlist=["record"]).record(model) if use_backend else None,
               "settings": {"temperature": 0, "radius": "max(30px, 3% width)"},
               "overall": {"items": len(ok), "infra_errors": len(rows) - len(ok), "accuracy": round(k / len(ok), 4) if ok else None,
                           "ci95": wilson(k, len(ok)) if ok else None,
                           "mean_seconds": round(sum(r["seconds"] for r in ok) / len(ok), 2) if ok else None},
               "rows": rows}
-    out = RESULTS / re.sub(r"[^A-Za-z0-9._+-]", "_", model) / Path(snapshot).name / "bench_d.json"
+    from .backends import label
+    out = RESULTS / re.sub(r"[^A-Za-z0-9._+-]", "_", label(model)) / Path(snapshot).name / "bench_d.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1) + "\n")
     return out

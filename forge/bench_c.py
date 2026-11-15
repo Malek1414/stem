@@ -15,7 +15,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from . import bench_a, bench_b, harness, net
+from . import backends, bench_a, bench_b, harness, net
 from .stats import mean_ci
 
 REPO = Path(__file__).resolve().parent.parent
@@ -168,13 +168,13 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     settings = {"temperature": 0, "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
                 "num_ctx": harness.NUM_CTX, "history_chars": harness.HISTORY_CHARS, "forced_final": True,
                 "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
-    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_c.json"
+    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / "bench_c.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
     done = ({r["id"]: r for r in prev.get("tasks", []) if r.get("status", "ok") != "infra_error"}
             if prev.get("settings") == settings else {})
-    record = {"model": bench_a.model_digest(base_url, model), "judge": bench_a.model_digest(base_url, judge_model)}
-    chat, ask = harness.ollama_chat(model, base_url, seed=seed), ollama_json(judge_model, base_url, seed=seed)
+    record = {"model": backends.record(model), "judge": bench_a.model_digest(base_url, judge_model)}
+    chat, ask = backends.chat(model, seed=seed), ollama_json(judge_model, base_url, seed=seed)
     rows = []
     for task in tasks:
         rows.append(done.get(task["id"]) or run_task(task, trajs[task["file"]]["steps"], chat, ask))

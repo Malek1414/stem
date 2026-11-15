@@ -18,7 +18,7 @@ import subprocess
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from . import net, bench_a, duo, harness
+from . import net, backends, bench_a, duo, harness
 from .stats import wilson
 
 REPO = Path(__file__).resolve().parent.parent
@@ -196,17 +196,17 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     settings = {"temperature": 0, "seed": seed, "max_steps": max_steps, "wall_seconds": wall_seconds,
                 "similar": SIMILAR, "history_budget_chars": harness.HISTORY_CHARS, "harness": harness.HARNESS_VERSION,
                 "num_ctx": harness.NUM_CTX}
-    name = model if coder is None else f"{model}+{coder}"  # operator+coder pairs get their own results folder
+    name = backends.label(model) if coder is None else f"{backends.label(model)}+{backends.label(coder)}"  # operator+coder pairs get their own results folder
     settings |= {"coder": coder} if coder else {}
     out = RESULTS / re.sub(r"[^A-Za-z0-9._+-]", "_", name) / snapshot.name / "bench_b.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
     done = {r["id"]: r for r in prev.get("tasks", []) if reusable(r)} if prev.get("settings") == settings else {}
-    record = bench_a.model_digest(base_url, model)
+    record = backends.record(model)
     if coder:
-        record = {"operator": record, "coder": bench_a.model_digest(base_url, coder)}
-    chat = harness.ollama_chat(model, base_url, seed=seed)
-    coder_chat = harness.ollama_chat(coder, base_url, seed=seed) if coder else None
+        record = {"operator": record, "coder": backends.record(coder)}
+    chat = backends.chat(model, seed=seed)
+    coder_chat = backends.chat(coder, seed=seed) if coder else None
     rows = []
     for task in tasks:
         rows.append(done.get(task["id"]) or run_task(task, trajs[task["file"]]["steps"], chat,

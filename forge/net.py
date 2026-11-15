@@ -20,19 +20,27 @@ SYNC_OLLAMA = "sync://ollama"  # resolved on every attempt: Sync may move the lo
 
 
 def sync_port(remote_port: int = 11434) -> int:
-    """Local port NVIDIA Sync currently forwards to `remote_port` on the Spark (falls back to the same number)."""
+    """Local port NVIDIA Sync currently forwards to `remote_port` on the Spark (falls back to the same number).
+    A port Sync has forgotten (it rebuilds its tunnels when it reconnects) is reopened with `nvsync open`."""
     try:
         out = subprocess.run([NVSYNC, "status", SYNC_ALIAS], capture_output=True, text=True, timeout=20).stdout
-        return int(json.loads(out)["ports"][str(remote_port)]["local_port"]) or remote_port
+        ports = json.loads(out)["ports"]
+        if str(remote_port) not in ports:
+            subprocess.run([NVSYNC, "open", SYNC_ALIAS, str(remote_port)], capture_output=True, text=True, timeout=30)
+            out = subprocess.run([NVSYNC, "status", SYNC_ALIAS], capture_output=True, text=True, timeout=20).stdout
+            ports = json.loads(out)["ports"]
+        return int(ports[str(remote_port)]["local_port"]) or remote_port
     except Exception:
         return remote_port
 
 
 def _resolve(req):
+    """sync://ollama/... -> the tunnel for Ollama (11434); sync://<port>/... -> the tunnel for that Spark port."""
     url = req.full_url if isinstance(req, urllib.request.Request) else req
-    if not url.startswith(SYNC_OLLAMA):
+    if not url.startswith("sync://"):
         return req
-    url = f"http://localhost:{sync_port()}" + url[len(SYNC_OLLAMA):]
+    host, _, rest = url[len("sync://"):].partition("/")
+    url = f"http://localhost:{sync_port(11434 if host == 'ollama' else int(host))}/" + rest
     if isinstance(req, urllib.request.Request):
         return urllib.request.Request(url, data=req.data, headers=dict(req.header_items()), method=req.get_method())
     return url
