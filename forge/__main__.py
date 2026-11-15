@@ -3,6 +3,8 @@
 snapshot [--limit N] [--no-raw]      build data/snapshots/vNNNN from ~/.claude/projects
 verify <snapshot> [--rebuild]       re-hash a snapshot; --rebuild also rebuilds it from raw.tar.gz
 bench-a <snapshot> --model M        run benchmark A against an Ollama endpoint
+bench-b <snapshot> --model M        run benchmark B (sandboxed task replay)
+bench-b-tasks <snapshot>            build and freeze benchmark B tasks, print a summary
 """
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import bench_a, snapshot
+from . import bench_a, bench_b, snapshot
 
 
 def main(argv=None) -> int:
@@ -31,6 +33,14 @@ def main(argv=None) -> int:
     b.add_argument("--n", type=int, default=300)
     b.add_argument("--limit", type=int)
     b.add_argument("--num-ctx", type=int)
+    bb = sub.add_parser("bench-b")
+    bb.add_argument("snapshot")
+    bb.add_argument("--model", required=True)
+    bb.add_argument("--base-url", default="http://localhost:11434")
+    bb.add_argument("--limit", type=int)
+    bb.add_argument("--match", help="only tasks whose prompt contains this text")
+    bt = sub.add_parser("bench-b-tasks")
+    bt.add_argument("snapshot")
     a = ap.parse_args(argv)
 
     if a.cmd == "snapshot":
@@ -48,6 +58,16 @@ def main(argv=None) -> int:
         r = json.loads(out.read_text())
         print(out)
         print(json.dumps({"overall": r["overall"], "by_agent": r["by_agent"]}, indent=1))
+        return 0
+    if a.cmd == "bench-b":
+        out = bench_b.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit, match=a.match)
+        print(out)
+        print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
+        return 0
+    if a.cmd == "bench-b-tasks":
+        for t in bench_b.tasks_for(Path(a.snapshot)):
+            files = ", ".join(f"{r}{'' if f['expected'] is not None else ' (changed-only)'}" for r, f in t["files"].items())
+            print(f"{t['ts'][:16]} {t['commit'][:8]} | {t['prompt'][:60]!r} | {files}")
         return 0
     return 2
 
