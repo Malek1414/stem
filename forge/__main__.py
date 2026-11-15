@@ -5,6 +5,7 @@ verify <snapshot> [--rebuild]       re-hash a snapshot; --rebuild also rebuilds 
 bench-a <snapshot> --model M        run benchmark A against an Ollama endpoint
 bench-b <snapshot> --model M        run benchmark B (sandboxed task replay)
 bench-b-tasks <snapshot>            build and freeze benchmark B tasks, print a summary
+bench-c <snapshot> --model M        run benchmark C (judged outcomes, pinned local judge)
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import bench_a, bench_b, snapshot
+from . import bench_a, bench_b, bench_c, snapshot
 
 
 def main(argv=None) -> int:
@@ -39,6 +40,12 @@ def main(argv=None) -> int:
     bb.add_argument("--base-url", default="http://localhost:11434")
     bb.add_argument("--limit", type=int)
     bb.add_argument("--match", help="only tasks whose prompt contains this text")
+    bc = sub.add_parser("bench-c")
+    bc.add_argument("snapshot")
+    bc.add_argument("--model", required=True)
+    bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
+    bc.add_argument("--base-url", default="http://localhost:11434")
+    bc.add_argument("--limit", type=int)
     bt = sub.add_parser("bench-b-tasks")
     bt.add_argument("snapshot")
     a = ap.parse_args(argv)
@@ -61,6 +68,11 @@ def main(argv=None) -> int:
         return 0
     if a.cmd == "bench-b":
         out = bench_b.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit, match=a.match)
+        print(out)
+        print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
+        return 0
+    if a.cmd == "bench-c":
+        out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0
