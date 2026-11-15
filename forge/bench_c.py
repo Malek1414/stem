@@ -165,7 +165,7 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     tasks = tasks_for(snapshot)
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
-    settings = {"temperature": 0, "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
+    settings = {"sampling": backends.sampling(model), "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
                 "num_ctx": harness.NUM_CTX, "history_chars": harness.HISTORY_CHARS, "forced_final": True,
                 "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / "bench_c.json"

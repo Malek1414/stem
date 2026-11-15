@@ -73,3 +73,13 @@ def test_missing_tools_are_named_in_the_system_prompt():
              {"kind": "tool_call", "name": "Bash", "input": {}}, {"kind": "tool_call", "name": "WebFetch", "input": {}}]
     note = bench_c.missing_tools_note(steps)
     assert "mcp__chrome-real__click" in note and "WebFetch" in note and "Bash" not in note
+
+
+def test_forced_final_retries_a_textual_tool_call(tmp_path):
+    from forge import harness
+    replies = iter([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "Bash", "arguments": {"command": "ls"}}}]},
+                    {"role": "assistant", "content": "<tool_call>\n<function=Bash>\n<parameter=command>ls</parameter>"},
+                    {"role": "assistant", "content": "I listed the folder; it was empty."}])
+    run = harness.run_agent(lambda m, t: next(replies), "sys", [], "do it", tmp_path, max_steps=1, force_final=True)
+    assert run["transcript"][-1]["assistant"] == "I listed the folder; it was empty."
+    assert harness.strip_tool_markup("ok <tool_call><function=X></tool_call> done") == "ok  done"

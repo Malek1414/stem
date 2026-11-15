@@ -193,7 +193,7 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     tasks = [t for t in tasks_for(snapshot) if not match or match.lower() in t["prompt"].lower()]
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
-    settings = {"temperature": 0, "seed": seed, "max_steps": max_steps, "wall_seconds": wall_seconds,
+    settings = {"sampling": backends.sampling(model), "seed": seed, "max_steps": max_steps, "wall_seconds": wall_seconds,
                 "similar": SIMILAR, "history_budget_chars": harness.HISTORY_CHARS, "harness": harness.HARNESS_VERSION,
                 "num_ctx": harness.NUM_CTX}
     name = backends.label(model) if coder is None else f"{backends.label(model)}+{backends.label(coder)}"  # operator+coder pairs get their own results folder

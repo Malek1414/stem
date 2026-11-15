@@ -6,6 +6,7 @@ folder, and the file tools refuse any path that resolves outside it."""
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import time
 import urllib.request
@@ -52,7 +53,9 @@ ALIASES = {"bash": "Bash", "read": "Read", "read_file": "Read", "write": "Write"
 
 def sandbox_profile(workdir: Path) -> str:
     w = str(Path(workdir).resolve())
-    return ("(version 1)(allow default)(deny network*)"
+    # no network, no writes outside the work folder, and no signals to processes outside the sandbox (a replayed
+    # `pkill -f remotion` must not kill the user's real apps)
+    return ("(version 1)(allow default)(deny network*)(deny signal)(allow signal (target same-sandbox))"
             f'(deny file-write* (require-not (require-any (subpath "{w}") (subpath "/private/var/folders") '
             '(subpath "/dev"))))')
 
@@ -171,8 +174,14 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
     has_text = any(t.get("assistant") for t in transcript[-1:])
     if force_final and infra_error is None and not has_text:
         try:  # one tool-free turn so a model that ran out of steps still answers the user
-            reply = chat(msgs + [{"role": "user", "content": FINAL_PROMPT}], [])
-            transcript.append({"assistant": reply.get("content", ""), "calls": [], "forced_final": True})
+            ask = msgs + [{"role": "user", "content": FINAL_PROMPT}]
+            reply = chat(ask, [])
+            text = reply.get("content", "") or ""
+            if "<tool_call>" in text:  # some models write a tool call as text when tools are withdrawn: ask once more
+                reply = chat(ask + [{"role": "assistant", "content": text},
+                                    {"role": "user", "content": "That was a tool call. Tools are off. Answer in plain text."}], [])
+                text = strip_tool_markup(reply.get("content", "") or "")
+            transcript.append({"assistant": text, "calls": [], "forced_final": True})
             forced = True
         except Exception as e:
             transcript.append({"error": repr(e), "infra": True})
@@ -181,11 +190,17 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
             "infra_error": infra_error, "forced_final": forced}
 
 
+def strip_tool_markup(text: str) -> str:
+    return re.sub(r"<tool_call>.*?(</tool_call>|$)", "", text, flags=re.S).strip()
+
+
 def ollama_chat(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0,
-                num_ctx: int | None = NUM_CTX, timeout: int = 900) -> ChatFn:
+                num_ctx: int | None = NUM_CTX, timeout: int = 900, params: dict | None = None) -> ChatFn:
+    opts = dict(params or {"temperature": 0})
+
     def chat(messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": model, "messages": messages, "tools": tools, "stream": False,
-                "options": {"temperature": 0, "seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {})}
+                "options": opts | {"seed": seed} | ({"num_ctx": num_ctx} if num_ctx else {})}
         req = urllib.request.Request(f"{base_url}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         with net.urlopen(req, timeout=timeout) as r:

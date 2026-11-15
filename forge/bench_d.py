@@ -162,7 +162,7 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     k = sum(r["pass"] for r in ok)
     report = {"benchmark": "D", "model": model, "snapshot": Path(snapshot).name,
               "model_record": __import__("forge.backends", fromlist=["record"]).record(model) if use_backend else None,
-              "settings": {"temperature": 0, "radius": "max(30px, 3% width)"},
+              "settings": {"sampling": __import__("forge.backends", fromlist=["sampling"]).sampling(model), "radius": "max(30px, 3% width)"},
               "overall": {"items": len(ok), "infra_errors": len(rows) - len(ok), "accuracy": round(k / len(ok), 4) if ok else None,
                           "ci95": wilson(k, len(ok)) if ok else None,
                           "mean_seconds": round(sum(r["seconds"] for r in ok) / len(ok), 2) if ok else None},

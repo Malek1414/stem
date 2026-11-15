@@ -5,6 +5,7 @@ through an NVIDIA Sync tunnel for that port (forge.net resolves sync://<port> on
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 
 from . import harness, net
@@ -61,9 +62,28 @@ def from_openai(reply: dict) -> dict:
     return out
 
 
-def openai_chat(base_url: str, seed: int = 0, timeout: int = 900) -> harness.ChatFn:
+# Sampling per model card. The Qwen3.x cards (Holo4 is Qwen3.6-based) say not to decode greedily: it causes endless
+# repetition, which we saw (the same command 16 times in a row at temperature 0). A fixed seed keeps runs reproducible.
+SAMPLING = {
+    "qwen3-coder": {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "repeat_penalty": 1.05},  # Qwen3-Coder(-Next) card
+    "qwen3": {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0},  # Qwen3.x thinking, precise/coding tasks
+}
+GREEDY = {"temperature": 0}
+
+
+def sampling(spec: str) -> dict:
+    """AF_SAMPLING=greedy restores temperature 0 (harness v2 runs)."""
+    if os.environ.get("AF_SAMPLING") == "greedy":
+        return dict(GREEDY)
+    s = spec.lower()
+    return dict(SAMPLING["qwen3-coder"] if ("qwen3-coder" in s or "coder-next" in s) else SAMPLING["qwen3"])
+
+
+def openai_chat(base_url: str, seed: int = 0, timeout: int = 900, params: dict | None = None) -> harness.ChatFn:
+    params = dict(GREEDY if params is None else params)
+
     def chat(messages: list[dict], tools: list[dict]) -> dict:
-        body = {"messages": to_openai(messages), "temperature": 0, "seed": seed, "stream": False}
+        body = {"messages": to_openai(messages), **params, "seed": seed, "stream": False}
         if tools:
             body["tools"] = tools
         req = urllib.request.Request(f"{base_url}/v1/chat/completions", data=json.dumps(body).encode(),
@@ -75,7 +95,10 @@ def openai_chat(base_url: str, seed: int = 0, timeout: int = 900) -> harness.Cha
 
 def chat(spec: str, seed: int = 0) -> harness.ChatFn:
     kind, base = parse(spec)
-    return openai_chat(base, seed) if kind == "llamacpp" else harness.ollama_chat(spec, base, seed=seed)
+    params = sampling(spec)
+    if kind == "llamacpp":
+        return openai_chat(base, seed, params=params)
+    return harness.ollama_chat(spec, base, seed=seed, params=params)
 
 
 def vision(spec: str, seed: int = 0, timeout: int = 300):
@@ -86,7 +109,7 @@ def vision(spec: str, seed: int = 0, timeout: int = 300):
 
     def ask(prompt: str, image_b64: str) -> str:
         mt = "image/png" if image_b64.startswith("iVBOR") else "image/jpeg"
-        body = {"temperature": 0, "seed": seed, "stream": False, "messages": [{"role": "user", "content": [
+        body = {**sampling(spec), "seed": seed, "stream": False, "messages": [{"role": "user", "content": [
             {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mt};base64,{image_b64}"}}]}]}
         req = urllib.request.Request(f"{base}/v1/chat/completions", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
