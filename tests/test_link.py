@@ -134,3 +134,11 @@ def test_card_validation():
 def test_name_persists_across_restarts(tmp_path):
     State(tmp_path / "n", name="malek")
     assert State(tmp_path / "n").settings["name"] == "malek"
+
+
+async def test_ping_and_paths(trio):
+    me, _, coder = trio
+    r = await coder.ping("malek", n=5)
+    assert r["n"] == 5 and r["median_ms"] >= 0 and r["p95_ms"] >= r["median_ms"]
+    paths = coder.paths("malek")
+    assert paths and any(p["selected"] for p in paths) and paths[0]["kind"] in ("direct", "relay")

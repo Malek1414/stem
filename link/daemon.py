@@ -49,6 +49,10 @@ class Daemon:
             return {"name": s["name"], "id": n.id, "mode": s["mode"], "ticket": n.ticket(),
                     "peers": len([p for p in n.state.peers().values() if not p["revoked"]]),
                     "waiting_for_approval": len(n.state.approvals())}
+        if cmd == "ping":
+            return await n.ping(req["peer"], int(req.get("n", 10)))
+        if cmd == "paths":
+            return n.paths(req["peer"])
         if cmd == "invite":
             return {"invite": n.make_invite(req.get("role", "peer"), req.get("scopes"), float(req.get("ttl_hours", 72)))}
         if cmd == "join":

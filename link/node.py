@@ -145,6 +145,26 @@ class Node:
                 if attempt == 2:
                     raise
 
+    async def ping(self, peer_name: str, n: int = 10) -> dict:
+        """Round trips over the open connection, with no disk writes on either side."""
+        ts = []
+        for _ in range(n):
+            t0 = time.perf_counter()
+            await self._request(peer_name, {"op": "ping"})
+            ts.append((time.perf_counter() - t0) * 1000)
+        ts.sort()
+        return {"n": n, "median_ms": round(ts[n // 2], 2), "p95_ms": round(ts[min(n - 1, int(0.95 * n))], 2),
+                "min_ms": round(ts[0], 2), "paths": self.paths(peer_name)}
+
+    def paths(self, peer_name: str) -> list[dict]:
+        """Network paths of the open connection to a peer: direct UDP or relay, and their RTT."""
+        peer = self.state.peer_by_name(peer_name) or self.state.peer(peer_name)
+        conn = self._conns.get(peer["id"]) if peer else None
+        if conn is None:
+            return []
+        return [{"kind": "relay" if p.is_relay else "direct", "remote": str(p.remote_addr), "selected": p.is_selected,
+                 "rtt_ms": p.rtt_ms} for p in conn.paths()]
+
     async def _send_a2a(self, peer_name: str, msg: t.Message) -> dict:
         params = json_format.MessageToDict(t.SendMessageRequest(message=msg))
         return await self._request(peer_name, {"op": "a2a", "method": "SendMessage", "params": params})
@@ -229,6 +249,8 @@ class Node:
         peer = self.state.peer(remote)
         if not peer:
             raise LinkError("unknown or revoked peer")
+        if op == "ping":
+            return {"pong": True}
         need = {"a2a": "message", "ws_append": "workspace", "ws_read": "workspace"}.get(op)
         if need is None:
             raise LinkError(f"unknown op {op}")
