@@ -46,7 +46,7 @@ def main(argv=None) -> int:
     sf = sub.add_parser("sft", help="training examples (chat + tool calls) from a snapshot's train split")
     sf.add_argument("snapshot")
     sf.add_argument("--out", required=True)
-    sf.add_argument("--max-chars", type=int, default=64_000)
+    sf.add_argument("--max-chars", type=int, default=40_000)
     bc = sub.add_parser("bench-c")
     bc.add_argument("snapshot")
     bc.add_argument("--model", required=True)

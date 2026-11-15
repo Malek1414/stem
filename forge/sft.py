@@ -128,7 +128,7 @@ def windows(blocks: list[dict], max_chars: int) -> list[list[dict]]:
 
 
 
-def examples(segment: dict, schemas: dict, max_chars: int = 64_000, out_chars: int = 3_000) -> list[dict]:
+def examples(segment: dict, schemas: dict, max_chars: int = 40_000, out_chars: int = 3_000) -> list[dict]:
     role = segment.get("agent", "coder")
     res = []
     for w in windows(_blocks(segment["steps"], out_chars), max_chars):
@@ -145,7 +145,7 @@ def examples(segment: dict, schemas: dict, max_chars: int = 64_000, out_chars: i
     return res
 
 
-def build(snapshot: Path, out: Path, max_chars: int = 64_000, out_chars: int = 3_000) -> dict:
+def build(snapshot: Path, out: Path, max_chars: int = 40_000, out_chars: int = 3_000) -> dict:
     snapshot, out = Path(snapshot), Path(out)
     schemas = json.loads((snapshot / "tools.json").read_text())
     out.mkdir(parents=True, exist_ok=True)

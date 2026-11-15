@@ -12,6 +12,10 @@ latent = [
     "torch>=2.6",
     "transformers>=4.53",
 ]
+train = [
+    "accelerate>=1.0",
+    "peft>=0.15",
+]
 
 [project.scripts]
 agent-forge-link = "link.__main__:main"
@@ -29,4 +33,4 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.uv]
-default-groups = ["dev", "latent"]
+default-groups = ["dev", "latent", "train"]
