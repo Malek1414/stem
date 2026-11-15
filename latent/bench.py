@@ -40,7 +40,27 @@ CONSTS = "RATE_LIMIT MAX_RETRIES TIMEOUT_MS PAGE_SIZE CACHE_TTL BATCH_CAP SHARD_
 
 
 # --- tasks ----------------------------------------------------------------------------------------
-def make_tasks(n: int, seed: int) -> list[dict]:
+FILLER_VERBS = "scan build emit trace probe stage drain index patch split".split()
+FILLER_NOUNS = "widget bucket mirror ticket stream report plan shard vault queue".split()
+
+
+def _filler(r: random.Random, chars: int) -> list[str]:
+    """Distractor code and logs: different names, no real constants, so the answer stays unique."""
+    out, size, k = [], 0, 0
+    while size < chars:
+        k += 1
+        f = f"{r.choice(FILLER_VERBS)}_{r.choice(FILLER_NOUNS)}_{k}"
+        block = [f"def {f}(item, ctx):", f"    limit = {r.randint(1, 5000)}",
+                 f"    if item.size > limit:", f"        ctx.log('{f} skipped', item.id)", "        return None",
+                 f"    return ctx.emit('{f}', item)", "",
+                 f"# 2026-11-15 08:{r.randint(10, 59)}:{r.randint(10, 59)} DEBUG {f} handled {r.randint(1, 999)} items", ""]
+        out += block
+        size += sum(len(x) + 1 for x in block)
+    return out
+
+
+def make_tasks(n: int, seed: int, ctx_chars: int = 0) -> list[dict]:
+    """ctx_chars > 0 pads the operator's context with distractors up to that size (long-context sweep)."""
     out = []
     for i in range(n):
         r = random.Random(f"{seed}:{i}")
@@ -59,6 +79,10 @@ def make_tasks(n: int, seed: int) -> list[dict]:
                for _ in range(6)]
         tb = ["Traceback (most recent call last):", f'  File "{mod}/runner.py", line {r.randint(20, 200)}, in run',
               f'  File "{mod}/core.py", line {r.randint(10, 60)}, in {fns[bad]}', f"ValueError: invalid {params[bad]}={val}"]
+        if ctx_chars:
+            fill = _filler(random.Random(f"{seed}:{i}:fill"), ctx_chars - sum(len(x) + 1 for x in lines + log + tb))
+            half = len(fill) // 2
+            lines = lines[:1] + fill[:half] + lines[1:] + fill[half:]  # facts end up in the middle of the file
         ctx = "\n".join(lines + log + tb)
         kind = i % 3
         if kind == 0:
@@ -202,9 +226,10 @@ def e2e(r: dict, mbps: float, rtt_ms: float) -> float:
 
 
 def run(model_id: str, n: int = 60, seed: int = 20261115, conditions=CONDITIONS, out_dir: Path = Path("results/latent"),
-        mbps: float = 100.0, rtt_ms: float = 17.0, ratio: float = 0.3, latent_steps: int = 20, device: str | None = None) -> dict:
-    R = Runner(model_id, device)
-    tasks = make_tasks(n, seed)
+        mbps: float = 100.0, rtt_ms: float = 17.0, ratio: float = 0.3, latent_steps: int = 20, device: str | None = None,
+        ctx_chars: int = 0, runner: "Runner | None" = None) -> dict:
+    R = runner or Runner(model_id, device)
+    tasks = make_tasks(n, seed, ctx_chars)
     cfg = {"card_tokens": 60, "answer_tokens": 24, "latent_steps": latent_steps, "ratio": ratio}
     if "kvcomm" in conditions:
         cal = calibrate_kvcomm(R, make_tasks(8, seed + 1), ratio)
@@ -228,12 +253,13 @@ def run(model_id: str, n: int = 60, seed: int = 20261115, conditions=CONDITIONS,
         a = {r["task"]: r["answer"] for r in rows if r["cond"] == "text_full"}
         b = {r["task"]: r["answer"] for r in rows if r["cond"] == "kv_full"}
         summary["kv_full_vs_text_full_agreement"] = round(sum(a[t] == b[t] for t in a) / len(a), 4)
-    res = {"model": model_id, "device": R.device, "dtype": str(R.dtype), "torch": torch.__version__,
+    res = {"model": model_id, "device": R.device, "ctx_chars": ctx_chars,
+           "mean_sender_tokens": round(sum(r["sender_tokens"] for r in rows) / len(rows)), "dtype": str(R.dtype), "torch": torch.__version__,
            "transformers": __import__("transformers").__version__, "n": n, "seed": seed, "cfg": cfg,
            "links": {k: [v[0] if v[0] != math.inf else "inf", v[1]] for k, v in links.items()},
            "summary": summary, "rows": rows}
     out_dir.mkdir(parents=True, exist_ok=True)
-    p = out_dir / f"{model_id.replace('/', '_')}_n{n}_s{seed}.json"
+    p = out_dir / f"{model_id.replace('/', '_')}_n{n}_s{seed}" + (f"_ctx{ctx_chars}" if ctx_chars else "") + ".json"
     p.write_text(json.dumps(res, indent=1))
     res["path"] = str(p)
     return res

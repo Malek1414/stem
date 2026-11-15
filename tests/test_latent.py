@@ -120,3 +120,12 @@ def test_hybrid_qwen3_next_state_handoff(hybrid):
     # layer selection only drops attention layers; recurrent state always travels
     sel = kvc.pack(c, "tiny-next", layers=[1])
     assert kvc.read_header(sel)[0]["layers"] == [0, 1, 2]
+
+
+def test_long_context_tasks_keep_the_answer_and_grow():
+    short, long = make_tasks(6, 3), make_tasks(6, 3, ctx_chars=40_000)
+    for s, l in zip(short, long):
+        assert len(l["context"]) >= 40_000 > len(s["context"])
+        assert l["answer"] == s["answer"] and l["answer"] in l["context"] and l["question"] == s["question"]
+        # filler never defines the real constants or reuses the failing function
+        assert l["context"].count(f"def {s['context'].split('in ')[-1].split()[0]}(") <= 1
