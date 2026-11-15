@@ -30,3 +30,39 @@ Findings that shape the build:
 - Unverified: the JSON-RPC method name in the A2A 1.0 spec ("SendMessage" was assumed for the envelope).
   It does not matter for our own iroh framing, but must match the spec for the HTTP binding.
 - Not yet tested: NAT traversal and relays (needs network), streaming responses, many concurrent streams.
+
+## Spike 2: getting messages into a running Claude Code session — two paths, one needs no flag
+
+Sources: code.claude.com/docs/en/cross-session-messaging and /channels (read 2026-11-15). This Mac:
+Claude Code 2.1.323; this session's inbox socket exists (`CLAUDE_CODE_MESSAGING_SOCKET`, mode 0600).
+
+1. **Inbox socket (no flag, chosen as the default delivery path).** Every interactive and `-p` session
+   (not `--bare`) binds a Unix socket restricted to the OS user; its path is in
+   `CLAUDE_CODE_MESSAGING_SOCKET`, with a per-session token in `CLAUDE_CODE_MESSAGING_TOKEN`
+   (optional `{"type":"auth","token":...}` first line on macOS). The link daemon, running as Malek's
+   user, can post a message into a session; it is delivered between tool calls or starts a new turn
+   when idle. Claude Code's own guards apply on top of ours: a delivered message can't approve
+   prompts, change configuration or run slash commands. Inbound control `crossSessionInbound`
+   (accept / hold / refuse). Default when unset: a session that bypasses permissions (Malek's usual
+   mode) HOLDS messages from non-child senders behind an approval dialog that expires after
+   `dialogExpiry` (5 min). Plain text only, ~1M-char cap, burst and loop throttling, 100 held max.
+   Own sessions on other machines are reachable only via Anthropic's Remote Control, and never other
+   people's sessions, so cross-person traffic must come through the link.
+   Not yet verified: the exact JSON line format for a message on the socket (the page documents the
+   auth line only). Test against a throwaway `claude -p` session, never this live one.
+2. **Channels (richer, but a dev flag for custom ones).** An MCP server that pushes events into the
+   session, with sender allowlists and optional permission relay (approve tool prompts remotely).
+   Pro/Max users without an org skip the org gate, but during the research preview `--channels` only
+   accepts allowlisted plugins; a custom channel needs `--dangerously-load-development-channels
+   server:<name>`. Use later for remote approval of held requests; not required for delivery.
+
+Design consequence: the link daemon delivers inbound messages through the inbox socket by default;
+Channels is an optional add-on for remote approvals. Inbound messages from other people stay subject
+to both our approval gate and Claude Code's hold/accept controls.
+
+## Spike 3: Mac -> Spark latency over the existing NVIDIA Sync tunnel
+
+20 sequential `GET /api/version` calls to Ollama on localhost:11434 (tunnel), 2026-11-15, Spark idle:
+min 18.1 ms, median 30.4 ms, p95 384.1 ms, max 520.3 ms. The median is fine for task cards and progress
+events; the tail is large (tunnel or Wi-Fi), so the link must stream and not block on each round trip.
+One sample of 20 calls: repeat on wired network and over iroh direct before drawing a firm conclusion.

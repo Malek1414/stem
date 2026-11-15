@@ -6,7 +6,9 @@ ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never
 ## Rules for the watcher
 
 - DGX Spark: only via the existing NVIDIA Sync tunnels (Ollama on localhost:11434). Never plain ssh.
-  One Spark job at a time; check nothing else is running on it first (`ps aux | grep "forge bench"`).
+  One Spark job at a time; check nothing else is running on it first (`pgrep -fl "python.* -m forge bench"`;
+  plain `ps aux | grep` matches its own shell and gives a false positive).
+- Skip items marked (APPROVAL) or (IN PROGRESS).
 - Never use Haiku for anything.
 - Do not send email, Slack or anything outward. Do not delete user files.
 - Commit each finished step with the attribution lines from the session.
@@ -22,12 +24,12 @@ ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never
 - [x] Link spike 1 (no install on the Spark, scratch folder only): in a throwaway uv env, check that PyPI
       `iroh` (Python bindings) and `a2a-sdk` install on the Mac and can open one iroh connection between
       two local endpoints and carry one A2A message. Write findings to docs/research/2026-11-15-link-spikes.md.
-- [ ] Link spike 2: read code.claude.com/docs/en/cross-session-messaging and the Claude Code Channels docs;
+- [x] Link spike 2: read code.claude.com/docs/en/cross-session-messaging and the Claude Code Channels docs;
       note whether inbound push into a session works without a developer flag. Same findings file.
-- [ ] Link spike 3: measure Mac -> Spark round-trip latency over the existing Ollama tunnel
+- [x] Link spike 3: measure Mac -> Spark round-trip latency over the existing Ollama tunnel
       (20 tiny `/api/version` calls, median and p95). Same findings file.
-- [ ] (APPROVAL) Build the link per the proposed design in the conversation; spec in
-      docs/superpowers/specs/2026-11-15-link-design.md. Waits for Malek's yes.
+- [ ] (IN PROGRESS, main session) Build the link per the design; approved by Malek ("keep going",
+      2026-11-15). Spec: docs/superpowers/specs/2026-11-15-link-design.md.
 - [ ] (APPROVAL) Decisions from docs/research/2026-11-15-training-and-eval-evidence.md: rotating
       held-out project; operator base from an open computer-use model; human calibration of judge/B rule.
 
