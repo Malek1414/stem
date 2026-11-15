@@ -90,3 +90,10 @@ def test_eligibility_needs_editing_sessions():
     base = {"project": "/p", "has_git": True, "agents": ["coder", "operator"]}
     assert split.eligible_projects([{**base, "edits": True}] * 2 + [{**base, "edits": False}] * 3) == []
     assert split.eligible_projects([{**base, "edits": True}] * 3 + [{**base, "edits": False}] * 2) == ["/p"]
+
+
+def test_stats():
+    from forge import stats
+    assert stats.wilson(6, 12) == (0.2538, 0.7462)
+    assert stats.sign_test([1, 1, 1, 1, 1, 1], [0] * 6)["p_value"] == 0.0312
+    assert stats.sign_test([1, 0], [1, 0])["p_value"] == 1.0

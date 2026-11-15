@@ -31,6 +31,7 @@ def test_run_task_and_judge(tmp_path):
         return {"understood": 5, "approach": 4, "correctness": 4, "completeness": 9, "overall": 4, "reason": "fine"}
     r = bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path)
     assert r["grade"]["completeness"] == 5 and r["grade"]["overall"] == 4  # clamped to 1..5
+    assert "overall" in r["null_grade"]
     assert "Pixellot" in seen["p"] and r["attempt"]["final"].startswith("I would search")
 
 

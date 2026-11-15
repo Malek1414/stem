@@ -19,6 +19,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from . import bench_a, harness
+from .stats import wilson
 
 REPO = Path(__file__).resolve().parent.parent
 RESULTS = REPO / "results"
@@ -207,7 +208,9 @@ def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, r
         "benchmark": "B", "model": model, "model_record": record, "snapshot": snapshot.name,
         "settings": settings,
         "overall": {"tasks": len(rows), "mean_score": round(sum(r["score"] for r in rows) / len(rows), 4) if rows else None,
-                    "checks_passed": sum(c["pass"] for c in checks), "checks": len(checks)},
+                    "ci95_mean_score": wilson(sum(r["score"] for r in rows), len(rows)),
+                    "checks_passed": sum(c["pass"] for c in checks), "checks": len(checks),
+                    "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 1) if rows else None},
         "tasks": rows,
     }
     out.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")

@@ -14,6 +14,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from . import segment as sg
+from .stats import wilson
 
 REPO = Path(__file__).resolve().parent.parent
 RESULTS = REPO / "results"
@@ -199,7 +200,12 @@ def _save(out: Path, model: str, snapshot: Path, settings: dict, rows: list[dict
     def agg(rs):
         if not rs:
             return None
-        return {k: round(sum(r["score"][k] for r in rs) / len(rs), 4) for k in ("name", "exact", "args")} | {"n": len(rs)}
+        return {k: round(sum(r["score"][k] for r in rs) / len(rs), 4) for k in ("name", "exact", "args")} | {
+            "n": len(rs),
+            "ci95_name": wilson(sum(r["score"]["name"] for r in rs), len(rs)),
+            "ci95_exact": wilson(sum(r["score"]["exact"] for r in rs), len(rs)),
+            "mean_seconds": round(sum(r["seconds"] for r in rs) / len(rs), 1),
+        }
     manifest = json.loads((snapshot / "manifest.json").read_text())
     report = {
         "benchmark": "A", "model": model, "model_record": digest, "snapshot": snapshot.name,

@@ -7,6 +7,7 @@ bench-b <snapshot> --model M        run benchmark B (sandboxed task replay)
 bench-b-tasks <snapshot>            build and freeze benchmark B tasks, print a summary
 bench-c <snapshot> --model M        run benchmark C (judged outcomes, pinned local judge)
 publish <snapshot> [--repo R]       copy a snapshot to a private HF dataset repo and verify hashes
+compare <snapshot> <a|b|c> M1 M2    paired task-level comparison with an exact sign test
 """
 from __future__ import annotations
 
@@ -47,6 +48,11 @@ def main(argv=None) -> int:
     bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
     bc.add_argument("--base-url", default="http://localhost:11434")
     bc.add_argument("--limit", type=int)
+    cp = sub.add_parser("compare")
+    cp.add_argument("snapshot")
+    cp.add_argument("bench", choices=["a", "b", "c"])
+    cp.add_argument("model_a")
+    cp.add_argument("model_b")
     pb = sub.add_parser("publish")
     pb.add_argument("snapshot")
     pb.add_argument("--repo")
@@ -79,6 +85,10 @@ def main(argv=None) -> int:
         out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
+        return 0
+    if a.cmd == "compare":
+        from .compare import compare
+        print(json.dumps(compare(Path(a.snapshot).name, a.bench, a.model_a, a.model_b), indent=1))
         return 0
     if a.cmd == "publish":
         from . import publish

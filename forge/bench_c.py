@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 from . import bench_a, bench_b, harness
+from .stats import mean_ci
 
 REPO = Path(__file__).resolve().parent.parent
 RESULTS = REPO / "results"
@@ -137,7 +138,10 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
                            for t in run["transcript"] for c in t.get("calls", [])],
                "final": texts[-1] if texts else ""}
     grade = judge(ask, task, attempt)
-    return {"id": task["id"], "prompt": task["prompt"][:300], "grade": grade, "attempt": attempt,
+    # null control: an empty attempt must score low, or the judge is not measuring the work
+    # (Zheng et al. 2024, "Cheating automatic LLM benchmarks", arXiv 2410.07137)
+    null = judge(ask, task, {"actions": [], "final": ""})
+    return {"id": task["id"], "prompt": task["prompt"][:300], "grade": grade, "null_grade": null, "attempt": attempt,
             "steps": run["steps"], "seconds": run["seconds"]}
 
 
@@ -148,7 +152,7 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
     settings = {"temperature": 0, "seed": seed, "max_steps": 15, "wall_seconds": 600,
-                "judge": judge_model, "rubric_sha256": RUBRIC_SHA}
+                "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_c.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
@@ -166,9 +170,13 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
 def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, rows: list[dict]) -> None:
     graded = [r["grade"] for r in rows if "overall" in r["grade"]]
     mean = lambda k: round(sum(g[k] for g in graded) / len(graded), 3) if graded else None
+    nulls = [r["null_grade"]["overall"] for r in rows if "overall" in r.get("null_grade", {})]
     report = {"benchmark": "C", "model": model, "model_record": record, "snapshot": snapshot.name,
               "settings": settings, "rubric": RUBRIC,
               "overall": {"tasks": len(rows), "graded": len(graded),
-                          **{k: mean(k) for k in (*CRITERIA, "overall")}},
+                          **{k: mean(k) for k in (*CRITERIA, "overall")},
+                          "ci95_overall": mean_ci([g["overall"] for g in graded]),
+                          "null_control_overall": round(sum(nulls) / len(nulls), 3) if nulls else None,
+                          "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 1) if rows else None},
               "tasks": rows}
     out.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")
