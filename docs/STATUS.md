@@ -51,10 +51,10 @@ through Sync tunnels (`nvsync open malekhassan <port>`; forge reopens forgotten 
 Check each hour, in order, and do the first thing that applies:
 - [ ] A0. Hard latent pilot (results/latent/Qwen_Qwen3-8B_n40_s20261115_hard.json): add to RESULTS.md next to the
       sweep. Productive = text_full well off ceiling and off the floor, and conditions differ beyond the CI.
-- [ ] A. Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):
+- [x] A. (done 21:50, see RESULTS.md) Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):
       when finished, pull the summaries (accuracy, CI, bytes, co-located seconds per condition per ctx length,
       incl. kv_goal) and add a table + reading to docs/RESULTS.md; commit.
-- [ ] B. Launcher: ~/agent-forge/chain.sh (log chain.log) replaced launch_servers.sh at 21:39. It waits for the
+- [x] B. (build OK; chain.sh replaces the launcher) Launcher: ~/agent-forge/chain.sh (log chain.log) replaced launch_servers.sh at 21:39. It waits for the
       sweep, runs the hard-task pilot (<=45 min, link message hard-done), then `svc.sh start af-operator af-coder`.
       Old notes: if the llama.cpp build failed (llamacpp_build.log), fix and rebuild
       (PATH=/usr/local/cuda/bin, CUDACXX, -DCMAKE_CUDA_ARCHITECTURES=121, -j 4), then rerun launch_servers.sh.

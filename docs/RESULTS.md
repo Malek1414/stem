@@ -66,3 +66,46 @@ Reading:
 - 4B/8B are at ceiling on these tasks, so latentmas vs kv_full is not separable; harder tasks needed.
 - Our KVComm reimplementation does not reproduce the paper (13-38% vs near-parity reported at ~30% of layers).
 - Across machines the KV blobs (46-97 MB) lose to text at the measured Mac<->Spark bandwidth.
+
+## 2026-11-15 · latent long-context sweep · Qwen3-8B, Spark GB10, bf16, n=30 per length, seed 20261115
+
+Same synthetic handoff tasks, padded with distractor code so the facts sit mid-file. Receiver TTFT = time from
+handoff to the coder's first token; co-located = sender + receiver, same GPU, no wire.
+
+| ctx chars | condition | accuracy (95% CI) | wire | sender s | receiver TTFT s | co-located s |
+|---|---|---|---|---|---|---|
+| 8k | text_full | 1.000 (0.89-1.00) | 8 KB | 0 | 0.84 | 1.11 |
+| 8k | text_card | 1.000 (0.89-1.00) | 0.1 KB | 4.28 | 0.09 | 4.64 |
+| 8k | kv_full / kv_q8 | 1.000 / 1.000 | 415 / 211 MB | 0.83 | 0.10 | 1.20 |
+| 8k | kv_goal | 1.000 | 418 MB | 0.84 | 0.10 | 1.21 |
+| 8k | latentmas | 1.000 | 421 MB | 3.22 | 0.10 | 3.59 |
+| 32k | text_full | 1.000 (0.89-1.00) | 32 KB | 0 | 4.41 | 4.80 |
+| 32k | text_card | 1.000 (0.89-1.00) | 0.2 KB | 10.67 | 0.10 | 11.07 |
+| 32k | kv_full / kv_q8 | 1.000 / 1.000 | 1.71 / 0.87 GB | 4.26 | 0.25 | 4.93 |
+| 32k | kv_goal | 1.000 | 1.71 GB | 4.21 | 0.22 | 4.82 |
+| 32k | latentmas | 1.000 | 1.71 GB | 6.66 | 0.23 | 7.27 |
+| 64k | text_full | 1.000 (0.89-1.00) | 64 KB | 0 | 8.48 | 8.89 |
+| 64k | text_card | 0.967 (0.83-0.99) | 0.2 KB | 14.22 | 0.09 | 14.58 |
+| 64k | kv_full / kv_q8 | 1.000 / 1.000 | 3.46 / 1.76 GB | 8.60 | 0.29 | 9.29 |
+| 64k | kv_goal | 1.000 | 3.47 GB | 8.42 | 0.28 | 9.10 |
+| 64k | latentmas | 1.000 | 3.47 GB | 11.14 | 0.27 | 11.81 |
+| 110k | text_full | 1.000 (0.89-1.00) | 110 KB | 0 | 28.26* | 28.77* |
+| 110k | text_card | 0.967 (0.83-0.99) | 0.2 KB | 24.47 | 0.09 | 24.90 |
+| 110k | kv_full / kv_q8 | 1.000 / 1.000 | 5.99 / 3.04 GB | 16.96 | 0.49 | 17.94 |
+| 110k | kv_goal | 1.000 | 6.00 GB | 16.92 | 0.48 | 17.90 |
+| 110k | latentmas | 1.000 | 6.00 GB | 20.33 | 0.49 | 21.57 |
+
+110k characters is about 40k tokens. kv_full and text_full gave identical answers at every length (agreement 1.00).
+\* At 110k the same prefill took 28 s as text_full but 17 s as the kv sender. The run hit a CUDA OOM-and-retry at
+20:22 under memory pressure (101/121 GB), so the 110k text_full timing is suspect; do not read it as a KV win.
+
+Reading:
+- KV handoff moves the prefill from the coder to the operator. On one GPU, end to end, it costs the same as
+  forwarding the raw text (same compute). The win is the coder's start: if the operator has already read the
+  context, the coder's first token comes in 0.25-0.49 s instead of 4.4-28 s (17x at 32k, 30x at 64k).
+- int8 halves the bytes with no accuracy loss at any length.
+- kv_goal (operator knows the goal) equals kv_full, so the sender seeing the question was not a confound.
+- Every condition is at or near ceiling (text_card 0.967 at 64k and 110k). These tasks cannot separate methods;
+  harder multi-hop tasks added (--level hard), pilot queued.
+- Across machines it is out of the question at 2.4 Mbit/s (0.4-6 GB per handoff). Latent handoff only makes
+  sense with operator and coder on the same box.
