@@ -19,7 +19,7 @@ ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never
 - [x] Read results/published.jsonl. Confirm v0002 is on the private repo malekhassan23/agent-forge-data
       with zero mismatches; note the revision in docs/RESULTS.md. If the upload failed, rerun
       `uv run --no-project --with huggingface_hub python -m forge publish data/snapshots/v0002` once.
-- [ ] Link spike 1 (no install on the Spark, scratch folder only): in a throwaway uv env, check that PyPI
+- [x] Link spike 1 (no install on the Spark, scratch folder only): in a throwaway uv env, check that PyPI
       `iroh` (Python bindings) and `a2a-sdk` install on the Mac and can open one iroh connection between
       two local endpoints and carry one A2A message. Write findings to docs/research/2026-11-15-link-spikes.md.
 - [ ] Link spike 2: read code.claude.com/docs/en/cross-session-messaging and the Claude Code Channels docs;
