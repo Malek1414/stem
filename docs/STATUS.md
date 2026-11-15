@@ -28,9 +28,42 @@ ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never
       note whether inbound push into a session works without a developer flag. Same findings file.
 - [x] Link spike 3: measure Mac -> Spark round-trip latency over the existing Ollama tunnel
       (20 tiny `/api/version` calls, median and p95). Same findings file.
-- [ ] (IN PROGRESS, main session) Build the link per the design; approved by Malek ("keep going",
+- [x] Build the link per the design; approved by Malek ("keep going",
       2026-11-15). Spec: docs/superpowers/specs/2026-11-15-link-design.md.
 - [ ] (APPROVAL) Decisions from docs/research/2026-11-15-training-and-eval-evidence.md: rotating
       held-out project; operator base from an open computer-use model; human calibration of judge/B rule.
 
 When every non-APPROVAL item is ticked, the watcher deletes its own cron job and leaves a summary.
+
+
+## Overnight plan 2026-11-15 (Malek asleep; "do whatever is needed to keep running through the night")
+
+Rules on top of the ones above: abliterated models only (Malek, 2026-11-15). Spark access only through Sync:
+JupyterLab at http://localhost:11012/lab in the chrome-real browser tab (load the kernel helper with
+mcp__chrome-real__evaluate_script sourcePath=/Users/malekhassan/Desktop/Projects/agent-forge/work/jhelper.js,
+then call window.__run(python_code, timeout_ms)). If the tab lost the page, navigate it to that URL first.
+llama-servers on the Spark are systemd user units: af-operator (8081, Holo4-35B-A3B-heretic), af-coder
+(8082, Huihui-Qwen3.6-35B-A3B-abliterated), af-dense (8083, Huihui-Qwen3.8-27B-abliterated). Mac reaches them
+through Sync tunnels (`nvsync open malekhassan <port>`; forge reopens forgotten ports itself). Memory budget:
+121 GB; operator+coder ~46 GB, Ollama judge gpt-oss:120b 65 GB, old model 52 GB: never all at once.
+
+Check each hour, in order, and do the first thing that applies:
+- [ ] A. Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):
+      when finished, pull the summaries (accuracy, CI, bytes, co-located seconds per condition per ctx length,
+      incl. kv_goal) and add a table + reading to docs/RESULTS.md; commit.
+- [ ] B. Launcher (~/agent-forge/launch.log): if the llama.cpp build failed (llamacpp_build.log), fix and rebuild
+      (PATH=/usr/local/cuda/bin, CUDACXX, -DCMAKE_CUDA_ARCHITECTURES=121, -j 4), then rerun launch_servers.sh.
+      If af-operator/af-coder fail to start (journalctl --user -u af-coder), fix flags (e.g. drop --mmproj, lower -c).
+- [ ] C. Mac queue work/queue3.sh (log work/queue3.log): if not running and not "queue3 done", restart it with
+      `nohup caffeinate -i work/queue3.sh > work/queue3.log 2>&1 &` (benches resume from saved results and rerun
+      infra_error rows). If a job ended with only infra errors, find out why (curl sync://8082/v1/chat/completions
+      by hand), fix, rerun that job.
+- [ ] D. When queue3 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
+      + null control, D accuracy + seconds), compare with the baseline, commit.
+- [ ] E. Then, on the Spark: `systemctl --user stop af-operator af-coder`; on the Mac run harness-v2 baseline reruns
+      via Ollama: `python -m forge bench-c data/snapshots/v0002 --model qwen3-coder-next-abliterated-128k` then bench-b
+      (same model). Record in RESULTS.md, commit.
+- [ ] F. Then: `systemctl --user start af-dense`, `nvsync open malekhassan 8083`, run bench-c and bench-b with
+      --model llamacpp:8083@qwen38-ablit; then stop af-dense; record; commit.
+- [ ] G. Then restart af-operator af-coder and leave a short summary at the top of docs/RESULTS.md for Malek
+      (what is best per role, by how much, what failed). Delete the watcher cron job.
