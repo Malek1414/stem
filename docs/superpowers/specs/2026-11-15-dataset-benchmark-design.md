@@ -18,7 +18,7 @@ models, 4 training runs.
 | Sessions | All sessions, split by agent. Automated runs excluded (entrypoint `sdk-py` / `sdk-cli`, claude-mem observer, Entropy autopilot). No scrubbing: personal data stays in. Consequence: dataset and weights stay private forever. |
 | Routing | Per segment. Each session is cut into stretches by tool type; coder stretches train the coder, operator stretches train the operator, the boundaries become handoff examples for the link. |
 | Training targets | Anthropic's terms forbid training competing models on Claude outputs without permission (no non-commercial exception). Permission requested from support@anthropic.com. Until granted, the **default is the fallback**: Claude's assistant turns are kept in the dataset but flagged `claude_output=true` and are not used as targets; targets come from open models attempting the tasks and passing outcome checks. Evaluating against Claude's actions (benchmark A) is allowed. |
-| Held-out | One whole project, drawn at random with a recorded seed from the eligible projects (git history, at least 5 sessions, both coder and operator steps). Everything else trains. |
+| Held-out | One whole project, drawn at random with a recorded seed. A session belongs to the git repo whose files it touched most (edits count triple), not the folder it started in. Eligible: at least 5 sessions, at least 3 of them editing code, both coder and operator steps. v0002 drew **hoopergpt** from McCODZ, Neurotree, hoopergpt, nightcrawler. Everything else trains. |
 | Benchmarks | A: next-action prediction. B: task replay with fully automatic checks. C: judged outcomes with a pinned local judge model (weights hash, greedy decoding, fixed rubric). |
 | Refresh | Versioned snapshots. New sessions keep flowing in; each training run points at exactly one snapshot. |
 | Storage | Local copy plus a private Hugging Face repo, both verified against the same hashes. |
@@ -46,6 +46,7 @@ Each is one module in `forge/` with one job and a CLI subcommand (`python -m for
    - operator: computer-use, peekaboo, claude-in-chrome, chrome-devtools, social-chrome, blenderwright,
      phone tools, and Bash running `osascript`, `open`, `screencapture`.
    - neutral: everything else (Read, Grep, Glob, ToolSearch, WebSearch, Agent, ...).
+   - A session with no coder or operator steps at all is one operator segment (the operator is the general tool caller).
 3. **split** (`forge/split.py`): projects, eligibility, seeded random draw of the held-out project.
 4. **snapshot** (`forge/snapshot.py`): builds `data/snapshots/vNNNN/` with `train/coder.jsonl`,
    `train/operator.jsonl`, `train/handoffs.jsonl`, `heldout/trajectories.jsonl`, a raw-source archive
@@ -56,10 +57,24 @@ Each is one module in `forge/` with one job and a CLI subcommand (`python -m for
    (whitespace, key order, path expansion; Bash compared by command tokens). Runner talks to any
    OpenAI- or Anthropic-compatible endpoint (Ollama on the Spark) at temperature 0 with a fixed seed and
    writes `results/<model>/<snapshot>/bench_a.json` with the model's weights digest.
-6. **bench_b** (later in this sub-project): held-out sessions in git repos; restore the commit at
-   session start (`git rev-list -1 --before=<start>`), replay the first prompt in a throwaway worktree,
-   checks generated automatically from the session's end state (tests run, files written, build passes).
-7. **bench_c** (later in this sub-project): sandboxed reruns graded by a pinned local judge.
+6. **harness** (`forge/harness.py`): the agent loop used by B and C. Tools: bash, read_file,
+   write_file, edit_file, done. Every shell command runs under macOS `sandbox-exec` with no network and
+   no writes outside the work folder; the file tools refuse paths outside it. Safety lives here because
+   the model under test may be abliterated.
+7. **bench_b** (`forge/bench_b.py`): a task is one user request that edited the held-out repo. The repo
+   is cloned (`--shared`, the original is never touched) at the last commit before the request, the
+   model gets the conversation so far plus the request, and automatic checks score it: `changed:<file>`,
+   `content:<file>` (line similarity >= 0.75 to the state Claude's edits produced, replayed on the
+   committed file), `valid:<file>` (.py compiles, .json parses). Tasks are frozen per snapshot in
+   `results/bench_b_tasks/`. v0002: 12 tasks.
+8. **bench_c** (`forge/bench_c.py`): the other requests (research, outreach, planning). The model works
+   in the same sandbox; a pinned local judge (default `gpt-oss:120b`, digest recorded) grades
+   understood / approach / correctness / completeness / overall from 1 to 5 against what really
+   happened, with a fixed rubric whose sha256 is recorded. Seeded sample of 20, frozen per snapshot.
+   Limitation: no network or apps, so operator requests are judged on approach, not effect.
+9. **publish** (`forge/publish.py`): uploads a snapshot to the private HF dataset repo
+   `malekhassan23/agent-forge-data`, refuses if the repo is public, and checks every remote file's
+   sha256 against the manifest. Each publish is logged in `results/published.jsonl`.
 
 ## Reproducibility contract
 
@@ -75,4 +90,4 @@ byte-identical across two runs, the bench A scorer matches equivalent calls and 
 
 ## Out of scope here
 
-The link, model choice, training, the permission outcome. Benchmark B and C ship after A.
+The link, model choice, training, the permission outcome (requested 15 Nov 2026).
