@@ -49,7 +49,7 @@ through Sync tunnels (`nvsync open malekhassan <port>`; forge reopens forgotten 
 121 GB; operator+coder ~46 GB, Ollama judge gpt-oss:120b 65 GB, old model 52 GB: never all at once.
 
 Check each hour, in order, and do the first thing that applies:
-- [ ] A0. Hard latent pilot (results/latent/Qwen_Qwen3-8B_n40_s20261115_hard.json): add to RESULTS.md next to the
+- [x] A0. (done 22:00: productive, see RESULTS.md) Hard latent pilot (results/latent/Qwen_Qwen3-8B_n40_s20261115_hard.json): add to RESULTS.md next to the
       sweep. Productive = text_full well off ceiling and off the floor, and conditions differ beyond the CI.
 - [x] A. (done 21:50, see RESULTS.md) Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):
       when finished, pull the summaries (accuracy, CI, bytes, co-located seconds per condition per ctx length,
@@ -65,6 +65,9 @@ Check each hour, in order, and do the first thing that applies:
       by hand), fix, rerun that job.
 - [ ] D. When queue3 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
       + null control, D accuracy + seconds), compare with the baseline, commit.
+- [ ] D2. With af-operator/af-coder stopped (start of E, before the Ollama reruns load): on the Spark run
+      `cd ~/agent-forge && PYTHONPATH=$HOME/agent-forge HF_HUB_OFFLINE=1 setsid nohup ~/vllm-nano/.venv/bin/python -m latent bench --model Qwen/Qwen3-8B --n 200 --seed 7 --level hard --conditions text_full,text_card,kv_full,kv_q8,kv_goal,latentmas > hard200.log 2>&1 &`
+      (~1 h, ~20 GB), wait for it to end before starting E's Ollama runs, record per-kind accuracy for kinds 1-3.
 - [ ] E. Then, on the Spark: `~/agent-forge/svc.sh stop af-operator af-coder`; on the Mac run harness-v2 baseline reruns
       via Ollama: `python -m forge bench-c data/snapshots/v0002 --model qwen3-coder-next-abliterated-128k` then bench-b
       (same model). Record in RESULTS.md, commit.

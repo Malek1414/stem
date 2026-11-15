@@ -109,3 +109,22 @@ Reading:
   harder multi-hop tasks added (--level hard), pilot queued.
 - Across machines it is out of the question at 2.4 Mbit/s (0.4-6 GB per handoff). Latent handoff only makes
   sense with operator and coder on the same box.
+
+## 2026-11-15 · latent hard-task pilot (--level hard) · Qwen3-8B, Spark GB10, bf16, n=40, short context
+
+Multi-hop tasks with decoys (overridden constants, a legacy module with the same function names, handled errors
+before the crash). 10 tasks per kind: 0 crashing function, 1 violated constant, 2 its effective value, 3 how far over.
+
+| condition | accuracy (95% CI) | k0 | k1 | k2 | k3 | sender s | receiver TTFT s |
+|---|---|---|---|---|---|---|---|
+| none | 0.000 (0.00-0.09) | 0/10 | 0/10 | 0/10 | 0/10 | 0 | 0.08 |
+| text_full | 0.525 (0.38-0.67) | 10/10 | 4/10 | 4/10 | 3/10 | 0 | 0.24 |
+| kv_full = kv_q8 | 0.525 (0.38-0.67) | 10/10 | 4/10 | 4/10 | 3/10 | 0.23 | 0.09 |
+| kv_goal | 0.575 (0.42-0.71) | 10/10 | 3/10 | 6/10 | 4/10 | 0.24 | 0.09 |
+| latentmas | 0.600 (0.45-0.74) | 10/10 | 4/10 | 6/10 | 4/10 | 2.45 | 0.09 |
+| text_card | 0.675 (0.52-0.80) | 10/10 | 3/10 | 7/10 | 7/10 | 4.94 | 0.09 |
+
+Reading: productive. The tasks leave the ceiling and the floor, and an ordering appears: the more the operator
+computes before handing off (goal-aware prefill < latent thoughts < a written note), the better the coder does on
+the value and arithmetic kinds. Writing the note lets the operator work the answer out. n=40 is too small to call
+(CIs overlap); kind 0 is still trivial. Next: n=200 on kinds 1-3 when the Spark is free (STATUS item D2).
