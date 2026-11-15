@@ -133,6 +133,9 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
         run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
+    if run.get("infra_error"):  # the model never answered: do not judge, rerun later
+        return {"id": task["id"], "prompt": task["prompt"][:300], "status": "infra_error", "error": run["infra_error"],
+                "steps": run["steps"], "seconds": run["seconds"]}
     texts = [t.get("assistant", "") for t in run["transcript"] if t.get("assistant")]
     attempt = {"actions": [f"{c['name']} {_clip(json.dumps(c.get('arguments'), ensure_ascii=False), 160)}"
                            for t in run["transcript"] for c in t.get("calls", [])],
@@ -141,7 +144,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
     # null control: an empty attempt must score low, or the judge is not measuring the work
     # (Zheng et al. 2024, "Cheating automatic LLM benchmarks", arXiv 2410.07137)
     null = judge(ask, task, {"actions": [], "final": ""})
-    return {"id": task["id"], "prompt": task["prompt"][:300], "grade": grade, "null_grade": null, "attempt": attempt,
+    return {"id": task["id"], "prompt": task["prompt"][:300], "status": "ok", "grade": grade, "null_grade": null, "attempt": attempt,
             "steps": run["steps"], "seconds": run["seconds"]}
 
 
@@ -156,7 +159,8 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_c.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
-    done = {r["id"]: r for r in prev.get("tasks", [])} if prev.get("settings") == settings else {}
+    done = ({r["id"]: r for r in prev.get("tasks", []) if r.get("status", "ok") != "infra_error"}
+            if prev.get("settings") == settings else {})
     record = {"model": bench_a.model_digest(base_url, model), "judge": bench_a.model_digest(base_url, judge_model)}
     chat, ask = harness.ollama_chat(model, base_url, seed=seed), ollama_json(judge_model, base_url, seed=seed)
     rows = []
@@ -168,15 +172,17 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
 
 
 def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, rows: list[dict]) -> None:
-    graded = [r["grade"] for r in rows if "overall" in r["grade"]]
+    infra = [r for r in rows if r.get("status") == "infra_error"]
+    rows_ok = [r for r in rows if r.get("status") != "infra_error"]
+    graded = [r["grade"] for r in rows_ok if "overall" in r["grade"]]
     mean = lambda k: round(sum(g[k] for g in graded) / len(graded), 3) if graded else None
-    nulls = [r["null_grade"]["overall"] for r in rows if "overall" in r.get("null_grade", {})]
+    nulls = [r["null_grade"]["overall"] for r in rows_ok if "overall" in r.get("null_grade", {})]
     report = {"benchmark": "C", "model": model, "model_record": record, "snapshot": snapshot.name,
               "settings": settings, "rubric": RUBRIC,
-              "overall": {"tasks": len(rows), "graded": len(graded),
+              "overall": {"tasks": len(rows_ok), "infra_errors": len(infra), "graded": len(graded),
                           **{k: mean(k) for k in (*CRITERIA, "overall")},
                           "ci95_overall": mean_ci([g["overall"] for g in graded]),
                           "null_control_overall": round(sum(nulls) / len(nulls), 3) if nulls else None,
-                          "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 1) if rows else None},
+                          "mean_seconds": round(sum(r["seconds"] for r in rows_ok) / len(rows_ok), 1) if rows_ok else None},
               "tasks": rows}
     out.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")

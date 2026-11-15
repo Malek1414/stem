@@ -39,3 +39,15 @@ def test_bad_judge_output_is_recorded():
     task = bench_c.build_tasks([traj()])[0]
     g = bench_c.judge(lambda p: {"nope": 1}, task, {"actions": [], "final": ""})
     assert "error" in g
+
+
+def test_unreachable_model_is_not_judged(tmp_path):
+    t = traj()
+    task = bench_c.build_tasks([t])[0]
+
+    def down(msgs, tools):
+        raise ConnectionRefusedError(61, "Connection refused")
+
+    judged = []
+    r = bench_c.run_task(task, t["steps"], down, lambda p: judged.append(p) or {}, root=tmp_path)
+    assert r["status"] == "infra_error" and judged == []

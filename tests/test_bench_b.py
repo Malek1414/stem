@@ -63,3 +63,18 @@ def test_sandbox_blocks_escape(tmp_path):
     assert not target.exists() and "exit 0" not in out
     assert "outside" in ws.call("write_file", {"path": str(target), "content": "x"})
     assert "exit 0" in ws.call("bash", {"command": "echo hi > inside.txt"}) and (tmp_path / "inside.txt").exists()
+
+
+def test_unreachable_model_is_infra_error_not_a_zero(repo, tmp_path):
+    t = traj(repo)
+    task = bench_b.build_tasks([t])[0]
+
+    def down(msgs, tools):
+        raise ConnectionRefusedError(61, "Connection refused")
+
+    r = bench_b.run_task(task, t["steps"], down, root=tmp_path / "w")
+    assert r["status"] == "infra_error" and r["score"] is None
+    rows = [r, {**r, "status": "ok", "score": 0.5, "id": "other"}]
+    s = bench_b.summarise(rows)
+    assert s["tasks"] == 1 and s["infra_errors"] == 1 and s["mean_score"] == 0.5
+    assert bench_b.reusable(r) is False and bench_b.reusable(rows[1]) is True

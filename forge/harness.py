@@ -100,11 +100,13 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
     ws = Workspace(workdir)
     msgs = [{"role": "system", "content": system}, *history, {"role": "user", "content": prompt}]
     transcript, t0, steps, finished = [], time.time(), 0, False
+    infra_error = None
     while steps < max_steps and time.time() - t0 < wall_seconds:
         try:
             reply = chat(msgs, TOOLS)
-        except Exception as e:
-            transcript.append({"error": repr(e)})
+        except Exception as e:  # the model never answered: an infrastructure failure, not a model failure
+            transcript.append({"error": repr(e), "infra": True})
+            infra_error = repr(e)
             break
         msgs.append({k: v for k, v in reply.items() if k in ("role", "content", "tool_calls")} | {"role": "assistant"})
         calls = reply.get("tool_calls") or []
@@ -128,7 +130,8 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
             msgs.append({"role": "tool", "content": out})
         if finished:
             break
-    return {"finished": finished, "steps": steps, "seconds": round(time.time() - t0, 1), "transcript": transcript}
+    return {"finished": finished, "steps": steps, "seconds": round(time.time() - t0, 1), "transcript": transcript,
+            "infra_error": infra_error}
 
 
 def ollama_chat(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0,

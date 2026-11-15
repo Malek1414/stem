@@ -173,8 +173,10 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, root: Path = W
     finally:
         shutil.rmtree(wd, ignore_errors=True)
     passed = sum(c["pass"] for c in checks)
+    infra = run.get("infra_error")
     return {"id": task["id"], "prompt": task["prompt"][:300], "commit": task["commit"], "checks": checks,
-            "score": round(passed / len(checks), 4) if checks else 0.0, "diff_stat": diff[-2_000:],
+            "status": "infra_error" if infra else "ok",
+            "score": None if infra else (round(passed / len(checks), 4) if checks else 0.0), "diff_stat": diff[-2_000:],
             "finished": run["finished"], "steps": run["steps"], "seconds": run["seconds"],
             "transcript": run["transcript"]}
 
@@ -190,7 +192,7 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", model) / snapshot.name / "bench_b.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
-    done = {r["id"]: r for r in prev.get("tasks", [])} if prev.get("settings") == settings else {}
+    done = {r["id"]: r for r in prev.get("tasks", []) if reusable(r)} if prev.get("settings") == settings else {}
     record = bench_a.model_digest(base_url, model)
     chat = harness.ollama_chat(model, base_url, seed=seed)
     rows = []
@@ -202,15 +204,31 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     return out
 
 
+def _infra(r: dict) -> bool:
+    """Rows from before the status field: a first transcript entry that is an error means the model never answered."""
+    if "status" in r:
+        return r["status"] == "infra_error"
+    return r.get("steps") == 0 and bool(r.get("transcript")) and "error" in r["transcript"][0]
+
+
+def reusable(r: dict) -> bool:
+    return not _infra(r)
+
+
+def summarise(rows: list[dict]) -> dict:
+    """Infrastructure failures (model unreachable) are reported, never scored as zeros."""
+    ok = [r for r in rows if not _infra(r)]
+    checks = [c for r in ok for c in r["checks"]]
+    return {"tasks": len(ok), "infra_errors": len(rows) - len(ok),
+            "mean_score": round(sum(r["score"] for r in ok) / len(ok), 4) if ok else None,
+            "ci95_mean_score": wilson(sum(r["score"] for r in ok), len(ok)) if ok else None,
+            "checks_passed": sum(c["pass"] for c in checks), "checks": len(checks),
+            "mean_seconds": round(sum(r["seconds"] for r in ok) / len(ok), 1) if ok else None}
+
+
 def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, rows: list[dict]) -> None:
-    checks = [c for r in rows for c in r["checks"]]
     report = {
         "benchmark": "B", "model": model, "model_record": record, "snapshot": snapshot.name,
-        "settings": settings,
-        "overall": {"tasks": len(rows), "mean_score": round(sum(r["score"] for r in rows) / len(rows), 4) if rows else None,
-                    "ci95_mean_score": wilson(sum(r["score"] for r in rows), len(rows)),
-                    "checks_passed": sum(c["pass"] for c in checks), "checks": len(checks),
-                    "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 1) if rows else None},
-        "tasks": rows,
+        "settings": settings, "overall": summarise(rows), "tasks": rows,
     }
     out.write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")
