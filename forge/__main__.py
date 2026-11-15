@@ -43,6 +43,10 @@ def main(argv=None) -> int:
     bb.add_argument("--limit", type=int)
     bb.add_argument("--match", help="only tasks whose prompt contains this text")
     bb.add_argument("--coder", help="run as operator (--model) + coder (this model) with task-card handoffs")
+    sf = sub.add_parser("sft", help="training examples (chat + tool calls) from a snapshot's train split")
+    sf.add_argument("snapshot")
+    sf.add_argument("--out", required=True)
+    sf.add_argument("--max-chars", type=int, default=64_000)
     bc = sub.add_parser("bench-c")
     bc.add_argument("snapshot")
     bc.add_argument("--model", required=True)
@@ -92,6 +96,10 @@ def main(argv=None) -> int:
         out = bench_d.run(Path(a.snapshot), a.model, a.base_url, limit=a.limit)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
+        return 0
+    if a.cmd == "sft":
+        from . import sft
+        print(json.dumps(sft.build(Path(a.snapshot), Path(a.out), a.max_chars), indent=1))
         return 0
     if a.cmd == "bench-c":
         out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit, replay=a.replay_tools)
