@@ -10,11 +10,14 @@ same for every model, recorded as settings.agent.
 | v1 (as before) | 2.85 | 2.45 | 2.20 | 1.90 | 2.35 | 101 |
 | v2: say what the request refers to first, check every item | 3.00 | 2.55 | 2.25 | 2.05 | 2.45 | 93 |
 | v3: v2 + one self-check before done | 2.25 | 2.05 | 1.75 | 1.70 | 1.90 | 145 |
+| v4: v2 + a self-check quoting the current message | 3.20 | 2.45 | 2.20 | 2.10 | 2.45 (1.93-2.97) | 121 |
 
 v2 is +0.10, within noise. v3 is worse, and the transcripts show why: "read the user's request again" made the
 35B check the session's first request instead of the message it was answering, and its final message became a
 checklist of the whole session ("Locate course content about OS03: Done") in place of the answer. 7 tasks fell to
 1-2 that way. v4 quotes the current message in the self-check and asks for the full answer as the final message.
+v4 fixes the drop but adds nothing over v2 (4 tasks better, 4 worse; one final message is again a self-review).
+The self-check is dropped; v2 goes on to the 27B.
 
 ## 2026-11-16 · Qwen3.8-27B heretic on benchmark C with replay · Q4_K_M, llama.cpp, Spark port 8087
 

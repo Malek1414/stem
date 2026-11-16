@@ -185,6 +185,8 @@ winner then runs on the 27B.
 18:55: A1 v2 2.45 (+0.10, noise). A2 v3 1.90: the self-check pulled the 35B to the session's first request and
 replaced the answer with a checklist. v4 (self-check quotes the current message, final = the answer) on the 35B
 in queue13, started 18:56.
+19:42: A2 v4 2.45 = v2 (4 better, 4 worse): self-check dropped. Spark on af-coder-27; queue14 (27B, agent v2,
+bench C replay, ~3 h) started.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
@@ -204,7 +206,7 @@ recorded in each result:
       history, then by searching the work folder and recent files) before acting, and check every item of the ask
       before the final message. Run on the 35B coder (cheap, local) once the Spark is free; Claude only if it helps.
       16:10: `bench-c --agent v2` added (v1 = unchanged settings and files); work/queue12.sh runs it on the 35B.
-- [~] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
+- [x] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
       (no access to the judge or the reference: selecting with the benchmark's judge would be gaming it).
       16:55: harness self_check (once, when the agent first says it is done) = `--agent v3`; queue12 runs v2 then v3.
 - [ ] A3. Distillation: Claude trajectories through this harness on train-split tasks (with A1/A2), filtered by a
