@@ -137,6 +137,8 @@ train_guard.sh; 779 examples (about all coder data at 8k), 98 steps, expected ~3
 10:52: T2 at step 65/98; eval loss 1.0636 -> 0.935 at step 50. work/queue9.sh is ready for T3 (bench-c replay,
 bench-c, bench-b on llamacpp:8085@qwen36-heretic-tuned). When T2 ends: `svc.sh start af-coder-t` (picks the newest
 adapter, coder-v1), check /lora-adapters names coder-v1, then start queue9 on the Mac.
+11:38: Malek switched the Mac to Uni Wi-Fi (192.168.11.71); hotspot_keeper.sh stopped so it does not pull the
+Mac back to the hotspot. Spark reachable through Sync (JupyterLab ok), GitHub ok. T2 at step 92/98.
 - [x] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
       `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
