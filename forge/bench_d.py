@@ -116,6 +116,24 @@ PROMPT = ("This is a screenshot of a macOS screen, {w}x{h} pixels. The agent con
           "in this image's pixel coordinates.")
 
 
+PROMPT_NORM = ("This is a screenshot of a macOS screen. The agent controlling the computer said, just before clicking:\n"
+               "\"{intent}\"\nWhere should it click? Answer with only JSON: {{\"x\": <int>, \"y\": <int>}} in "
+               "coordinates normalised to 0-1000 (0,0 is the top-left corner, 1000,1000 the bottom-right).")
+
+
+def coords(model: str) -> str:
+    """The point convention a model was trained on. Holo (H company) answers in 0-1000 normalised coordinates even
+    when asked for pixels (16.11.2026: 0/43 read as pixels, 25/43 read as 0-1000), so it is asked in its own
+    convention and the answer is converted to pixels before scoring."""
+    return "norm1000" if "holo" in model.lower() else "pixel"
+
+
+def to_pixels(point, item: dict, convention: str):
+    if point is None or convention == "pixel":
+        return point
+    return point[0] * item["width"] / 1000, point[1] * item["height"] / 1000
+
+
 def parse_point(text: str) -> tuple[float, float] | None:
     m = re.search(r'"?x"?\s*[:=]\s*(-?\d+(?:\.\d+)?)\D+?"?y"?\s*[:=]\s*(-?\d+(?:\.\d+)?)', text)
     if m:
@@ -144,6 +162,8 @@ def ollama_vision(model: str, base_url: str = net.SYNC_OLLAMA, seed: int = 0, ti
 
 def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int | None = None, ask=None) -> Path:
     from .bench_a import model_digest
+    conv = coords(model)
+    prompt = PROMPT_NORM if conv == "norm1000" else PROMPT
     items = items_for(snapshot)[:limit] if limit else items_for(snapshot)
     use_backend = ask is None
     if ask is None:
@@ -153,8 +173,8 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     for it in items:
         t = time.time()
         try:
-            text = ask(PROMPT.format(w=it["width"], h=it["height"], intent=it["intent"]), it["image"])
-            rows.append({"id": it["id"], "answer": text[:300], **score(it, parse_point(text)),
+            text = ask(prompt.format(w=it["width"], h=it["height"], intent=it["intent"]), it["image"])
+            rows.append({"id": it["id"], "answer": text[:300], **score(it, to_pixels(parse_point(text), it, conv)),
                          "seconds": round(time.time() - t, 2)})
         except Exception as e:  # unreachable model: not scored
             rows.append({"id": it["id"], "status": "infra_error", "error": repr(e)})
@@ -162,7 +182,8 @@ def run(snapshot: Path, model: str, base_url: str = net.SYNC_OLLAMA, limit: int 
     k = sum(r["pass"] for r in ok)
     report = {"benchmark": "D", "model": model, "snapshot": Path(snapshot).name,
               "model_record": __import__("forge.backends", fromlist=["record"]).record(model) if use_backend else None,
-              "settings": {"sampling": __import__("forge.backends", fromlist=["sampling"]).sampling(model), "radius": "max(30px, 3% width)"},
+              "settings": {"sampling": __import__("forge.backends", fromlist=["sampling"]).sampling(model), "radius": "max(30px, 3% width)", "coords": conv,
+                           "max_tokens": __import__("forge.backends", fromlist=["MAX_TOKENS"]).MAX_TOKENS},
               "overall": {"items": len(ok), "infra_errors": len(rows) - len(ok), "accuracy": round(k / len(ok), 4) if ok else None,
                           "ci95": wilson(k, len(ok)) if ok else None,
                           "mean_seconds": round(sum(r["seconds"] for r in ok) / len(ok), 2) if ok else None},

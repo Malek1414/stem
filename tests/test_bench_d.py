@@ -55,3 +55,12 @@ def test_parse_and_score():
     assert bench_d.parse_point("no idea") is None
     assert bench_d.score(it, (120, 100))["pass"] and not bench_d.score(it, (140, 100))["pass"]
     assert bench_d.score(it, None) == {"pass": False, "distance": None}
+
+
+def test_holo_is_asked_and_scored_in_0_1000_coordinates():
+    assert bench_d.coords("llamacpp:8081@holo4-heretic") == "norm1000"
+    assert bench_d.coords("llamacpp:8084@qwen36-heretic") == "pixel"
+    item = {"width": 1372, "height": 892, "target": [520, 100]}
+    p = bench_d.to_pixels((379, 112), item, "norm1000")
+    assert bench_d.score(item, p)["pass"]
+    assert bench_d.to_pixels((379, 112), item, "pixel") == (379, 112)

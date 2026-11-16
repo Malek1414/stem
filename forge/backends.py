@@ -111,7 +111,7 @@ def vision(spec: str, seed: int = 0, timeout: int = 300):
 
     def ask(prompt: str, image_b64: str) -> str:
         mt = "image/png" if image_b64.startswith("iVBOR") else "image/jpeg"
-        body = {**sampling(spec), "seed": seed, "stream": False, "messages": [{"role": "user", "content": [
+        body = {**sampling(spec), "seed": seed, "stream": False, "max_tokens": MAX_TOKENS, "messages": [{"role": "user", "content": [
             {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:{mt};base64,{image_b64}"}}]}]}
         req = urllib.request.Request(f"{base}/v1/chat/completions", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
