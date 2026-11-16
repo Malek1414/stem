@@ -90,3 +90,13 @@ def test_loss_from_masks_the_replayed_history():
     e = encode(tok, {"messages": msgs, "loss_from": 2}, 512)
     learned = tok.decode([i for i, l in zip(e["input_ids"], e["labels"]) if l != -100])
     assert "NEWREPLY" in learned and "OLDREPLY" not in learned
+
+
+def test_tool_call_arguments_become_dicts_for_the_template():
+    from forge.train_lora import dict_args
+    msgs = [{"role": "assistant", "content": "", "tool_calls": [{"id": "1", "function": {"name": "Bash", "arguments": '{"command": "ls"}'}},
+                                                                  {"id": "2", "function": {"name": "X", "arguments": "not json"}}]}]
+    out = dict_args(msgs)
+    assert out[0]["tool_calls"][0]["function"]["arguments"] == {"command": "ls"}
+    assert out[0]["tool_calls"][1]["function"]["arguments"] == {"input": "not json"}
+    assert isinstance(msgs[0]["tool_calls"][0]["function"]["arguments"], str)  # input untouched

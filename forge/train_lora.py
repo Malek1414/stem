@@ -25,10 +25,32 @@ import torch
 ASSISTANT = re.compile(r"<\|im_start\|>assistant\n(.*?)(<\|im_end\|>)", re.S)
 
 
+def dict_args(msgs: list[dict]) -> list[dict]:
+    """Tool-call arguments as dicts: the Qwen3.8 template iterates them (arguments|items) and fails on the JSON
+    strings forge.sft writes; the Qwen3.6 template took either."""
+    out = []
+    for m in msgs:
+        if m.get("tool_calls"):
+            m = {**m, "tool_calls": [{**c, "function": {**c["function"], "arguments": _as_dict(c["function"].get("arguments"))}}
+                                     for c in m["tool_calls"]]}
+        out.append(m)
+    return out
+
+
+def _as_dict(a) -> dict:
+    if isinstance(a, dict):
+        return a
+    try:
+        v = json.loads(a or "{}")
+    except json.JSONDecodeError:
+        return {"input": a}
+    return v if isinstance(v, dict) else {"input": v}
+
+
 def encode(tok, ex: dict, max_len: int) -> dict | None:
     """Token ids and labels; labels are -100 outside assistant replies (and their closing <|im_end|>). With
     ex["loss_from"] (forge.distill), assistant replies before that message index are context only."""
-    text = tok.apply_chat_template(ex["messages"], tools=ex.get("tools"), tokenize=False)
+    text = tok.apply_chat_template(dict_args(ex["messages"]), tools=ex.get("tools"), tokenize=False)
     spans = [(m.start(1), m.end(2)) for m in ASSISTANT.finditer(text)]
     skip = sum(m["role"] == "assistant" for m in ex["messages"][: ex.get("loss_from", 0)])
     spans = spans[skip:]
