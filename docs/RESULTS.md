@@ -1,5 +1,47 @@
 # agent-forge results log
 
+## 2026-11-16 · queue4: operator and coder baselines · snapshot v0002 · harness 2
+
+Operator: Holo4-35B-A3B-heretic Q4 (llama.cpp, Spark port 8081). Coder: llmfan46 Qwen3.6-35B-A3B-uncensored-heretic
+Q4_K_M (port 8084). Sampling per model card (Qwen3.x: temperature 0.6, top_p 0.95, top_k 20, presence_penalty 1.5),
+max 4096 tokens per reply, seed 0. Judge for C stays greedy. Infrastructure errors are excluded and rerun later.
+
+**Benchmark C** (20 held-out turns, judge scores 1-5, no replay of app/web tools, so the ceiling is about 3.2):
+
+| Model | Graded | Infra | Understood | Approach | Correctness | Completeness | Overall (95% CI) | s/task |
+|---|---|---|---|---|---|---|---|---|
+| coder Qwen3.6-heretic | 19 | 1 | 2.74 | 2.16 | 2.05 | 1.74 | **2.26** (1.75-2.78) | 129 |
+| operator Holo4-heretic | 20 | 0 | 2.50 | 1.70 | 1.80 | 1.65 | **1.90** (1.37-2.43) | 57 |
+| earlier: qwen3-coder-next (v1 harness) | | | | | | | 1.63 | |
+| null control (empty answer) | | | | | | | 1.00 | |
+
+**Benchmark B** (repo tasks, pass = the files Claude changed are changed and >= 75% similar):
+
+| Setup | Graded | Infra | Checks passed | Mean (95% CI) | Handoffs | s/task |
+|---|---|---|---|---|---|---|
+| coder alone | 11 | 1 | 0/68 | 0.00 (0-0.26) | | 362 |
+| operator + coder | 12 | 0 | 0/72 | 0.00 (0-0.24) | 3 | 167 |
+| coder + coder | 11 | 1 | 0/68 | 0.00 (0-0.26) | 8 | 381 |
+
+Reading B: not a harness bug (check() reads the files directly, so new files count). The agents edit other files
+or none: the coder copies patterns from the long history (writes a brainstorming spec, builds a PDF with reportlab)
+instead of changing the file Claude changed; only 2 of 11 solo runs called done. In the duo, 7 of 12 runs ended at
+step 0 because Holo4 answered in prose (sample code, a question back, a tool call written as text) and the harness
+ends a run on the first reply without a tool call. B is strict file matching and every model so far scores 0, so it
+does not separate models yet. Candidate harness v3: nudge once on a reply without tool call or done, and parse
+textual tool calls.
+
+**Benchmark D** (43 clicks on the user's own screens, pass = within max(30 px, 3% width) of Claude's click):
+
+| Model | Items | Infra | Accuracy (95% CI) | s/click |
+|---|---|---|---|---|
+| operator Holo4-heretic, asked in 0-1000 coordinates | 43 | 0 | **53.5%** (38.9-67.5) | 4.1 |
+| operator Holo4-heretic, asked in pixels (first run) | 43 | 0 | 0% (scored as pixels) | 4.2 |
+| coder Qwen3.6-heretic | rerun running (first run had no token cap: 11k+ tokens per item, stopped) | | | |
+
+Reading D: Holo4 answers in its trained 0-1000 convention even when the prompt asks for pixels. Fixed in b99617d
+(per-model convention, recorded in settings). The operator's computer-use tools must convert the same way.
+
 ## 2026-11-15 · benchmark B · qwen3-coder-next-abliterated-128k · snapshot v0002
 
 Model record: Ollama digest 3e0033bef22e…, Q4_K_M, Ollama 0.24.0, temperature 0, seed 0.

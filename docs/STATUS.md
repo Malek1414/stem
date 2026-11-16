@@ -88,14 +88,19 @@ or a tool call written as text) instead of calling a tool, and the harness ends 
 without tool calls. Candidate fix for D/R (not applied, so queue4 stays comparable): harness v3 nudges once
 when a reply has no tool call and no done, and parses textual tool calls. queue4 is on bench-b
 coder-h+coder-h (started 01:57).
-- [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
+- [x] C. (queue4 done 03:54; bench-d coder-h stopped: no token cap on vision, rerun in work/queue5.sh) Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
       bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
       "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
       from saved results when settings match, and rerun infra_error rows). If a job ended with only infra errors,
       find out why (curl the server through its Sync port by hand), fix, rerun that job. If the Spark's servers are
       down: `~/agent-forge/svc.sh status`, `svc.sh start af-operator af-coder-h`.
-- [ ] D. When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
+- [x] D. (done 04:05, RESULTS.md "queue4"; coder bench D row is filled in when work/queue5.log says done) When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
       + null control, D accuracy + seconds), compare with the baseline, commit.
+04:05: bench D fixed (b99617d): Holo4 answers in 0-1000 coordinates (now 53.5%, was 0% read as pixels) and the
+vision path had no max_tokens. af-operator is STOPPED so coder + judge fit; work/queue6.sh (log queue6.log) waits
+for queue5, then runs R for the coder and reruns the coder's bench C infra row. After queue6: `svc.sh stop
+af-coder-h; svc.sh start af-operator` and run R for the operator (one model + judge at a time from now on).
+Harness stays at 2 for R so R is comparable with queue4; harness v3 (nudge) is a separate, later decision.
 - [ ] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
       `python -m forge bench-c data/snapshots/v0002 --model llamacpp:8084@qwen36-heretic --replay-tools` and the same
       with `--model llamacpp:8081@holo4-heretic`. Writes bench_c_replay.json (also an "offline" score). Record; commit.
