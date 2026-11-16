@@ -75,3 +75,18 @@ def test_load_model_maps_multimodal_checkpoint_names(tmp_path):
     save_file(sd, str(tmp_path / "m" / "model.safetensors"))
     got = train_lora.load_model(tmp_path / "m", torch.float32, "cpu")
     assert all(torch.equal(ref.state_dict()[k], v) for k, v in got.state_dict().items())
+
+
+def test_loss_from_masks_the_replayed_history():
+    from transformers import AutoTokenizer
+    import pytest
+    try:
+        tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B", local_files_only=True)
+    except Exception:
+        pytest.skip("no local Qwen tokenizer")
+    from forge.train_lora import encode
+    msgs = [{"role": "user", "content": "a"}, {"role": "assistant", "content": "OLDREPLY"},
+            {"role": "user", "content": "b"}, {"role": "assistant", "content": "NEWREPLY"}]
+    e = encode(tok, {"messages": msgs, "loss_from": 2}, 512)
+    learned = tok.decode([i for i, l in zip(e["input_ids"], e["labels"]) if l != -100])
+    assert "NEWREPLY" in learned and "OLDREPLY" not in learned

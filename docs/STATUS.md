@@ -209,8 +209,13 @@ recorded in each result:
 - [x] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
       (no access to the judge or the reference: selecting with the benchmark's judge would be gaming it).
       16:55: harness self_check (once, when the agent first says it is done) = `--agent v3`; queue12 runs v2 then v3.
-- [ ] A3. Distillation: Claude trajectories through this harness on train-split tasks (with A1/A2), filtered by a
+- [~] A3. Distillation: Claude trajectories through this harness on train-split tasks (with A1/A2), filtered by a
       separate checker, as LoRA data for the best local coder. Needs Malek's OK for the API spend first.
+      20:50: Malek OK'd the spend through `claude -p` on his plan. forge/claude_p_backend.py (claude-p:<model>:
+      the CLI is only the model, its tools off, empty folder, no settings/MCP; the harness runs every call in its
+      sandbox + replay) and forge/distill.py (bench C task builder on train segments, subagent segments excluded,
+      0 prompt overlap with the benchmark; Claude-as-checker against the recorded outcome; loss only on the new
+      turns via loss_from). queue15: 100 tasks, agent v2. Then `--build` (overall >= 4) and a LoRA on the 27B.
 
 ## Target and loop (Malek, 2026-11-15 23:00: "loop until 4 is reached")
 

@@ -26,9 +26,12 @@ ASSISTANT = re.compile(r"<\|im_start\|>assistant\n(.*?)(<\|im_end\|>)", re.S)
 
 
 def encode(tok, ex: dict, max_len: int) -> dict | None:
-    """Token ids and labels; labels are -100 outside assistant replies (and their closing <|im_end|>)."""
+    """Token ids and labels; labels are -100 outside assistant replies (and their closing <|im_end|>). With
+    ex["loss_from"] (forge.distill), assistant replies before that message index are context only."""
     text = tok.apply_chat_template(ex["messages"], tools=ex.get("tools"), tokenize=False)
     spans = [(m.start(1), m.end(2)) for m in ASSISTANT.finditer(text)]
+    skip = sum(m["role"] == "assistant" for m in ex["messages"][: ex.get("loss_from", 0)])
+    spans = spans[skip:]
     if not spans:
         return None
     enc = tok(text, add_special_tokens=False, return_offsets_mapping=True, truncation=True, max_length=max_len)

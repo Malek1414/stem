@@ -188,7 +188,8 @@ SELF_CHECK = {"v3": ("Before you finish: read the user's request again and your 
 
 
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
-             max_steps: int = 15, wall_seconds: int = 600, schemas: dict | None = None, agent: str = "v1") -> dict:
+             max_steps: int = 15, wall_seconds: int = 600, schemas: dict | None = None, agent: str = "v1",
+             keep: bool = False, null_control: bool = True) -> dict:
     """schemas given = replay mode: the original turn's app/web tools are available, answered from the recording."""
     root = Path(root)
     if task.get("repo") and Path(task["repo"], ".git").exists():
@@ -230,9 +231,13 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
     grade = judge(ask, task, attempt)
     # null control: an empty attempt must score low, or the judge is not measuring the work
     # (Zheng et al. 2024, "Cheating automatic LLM benchmarks", arXiv 2410.07137)
-    null = judge(ask, task, {"actions": [], "final": ""})
-    return {"id": task["id"], "prompt": task["prompt"][:300], "status": "ok", "grade": grade, "null_grade": null, "attempt": attempt,
-            "steps": run["steps"], "seconds": run["seconds"]}
+    null = judge(ask, task, {"actions": [], "final": ""}) if null_control else None
+    row = {"id": task["id"], "prompt": task["prompt"][:300], "status": "ok", "grade": grade, "null_grade": null, "attempt": attempt,
+           "steps": run["steps"], "seconds": run["seconds"]}
+    if keep:  # what the agent saw and did, for training data (forge.distill); benchmark results stay small
+        row["episode"] = {"system": system, "history": history, "prompt": prompt, "transcript": run["transcript"],
+                          "tools": harness.TOOLS + tools if tools else harness.TOOLS}
+    return row
 
 
 def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = net.SYNC_OLLAMA,

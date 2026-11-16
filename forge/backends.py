@@ -23,6 +23,8 @@ def label(spec: str) -> str:
     'claude-opus-5-5'."""
     if spec.startswith("anthropic:"):
         return spec.split(":", 1)[1]
+    if spec.startswith("claude-p:"):  # same model as the API run, but a different runtime: its own folder
+        return "claude-p_" + spec.split(":", 1)[1]
     return spec.split("@", 1)[1] if spec.startswith("llamacpp:") and "@" in spec else spec
 
 
@@ -89,6 +91,9 @@ def sampling(spec: str) -> dict:
     if spec.startswith("anthropic:"):  # the API sets no sampling on current Claude models; effort is the control
         from .anthropic_backend import EFFORT
         return {"effort": EFFORT}
+    if spec.startswith("claude-p:"):
+        from .claude_p_backend import EFFORT as E
+        return {"effort": E}
     if os.environ.get("AF_SAMPLING") == "greedy":
         return dict(GREEDY)
     s = spec.lower()
@@ -119,6 +124,9 @@ def chat(spec: str, seed: int = 0) -> harness.ChatFn:
     if spec.startswith("anthropic:"):
         from . import anthropic_backend
         return anthropic_backend.chat(spec.split(":", 1)[1])
+    if spec.startswith("claude-p:"):
+        from . import claude_p_backend
+        return claude_p_backend.chat(spec.split(":", 1)[1])
     kind, base = parse(spec)
     params = sampling(spec)
     if kind == "llamacpp":
@@ -148,6 +156,9 @@ def record(spec: str) -> dict:
     if spec.startswith("anthropic:"):
         from . import anthropic_backend
         return anthropic_backend.record(spec.split(":", 1)[1])
+    if spec.startswith("claude-p:"):
+        from . import claude_p_backend
+        return claude_p_backend.record(spec.split(":", 1)[1])
     kind, base = parse(spec)
     if kind == "ollama":
         from .bench_a import model_digest
