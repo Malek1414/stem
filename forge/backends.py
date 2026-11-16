@@ -19,7 +19,10 @@ def parse(spec: str) -> tuple[str, str]:
 
 
 def label(spec: str) -> str:
-    """Name for results folders: 'llamacpp:8081@qwen36-ablit' -> 'qwen36-ablit'."""
+    """Name for results folders: 'llamacpp:8081@qwen36-ablit' -> 'qwen36-ablit', 'anthropic:claude-opus-5-5' ->
+    'claude-opus-5-5'."""
+    if spec.startswith("anthropic:"):
+        return spec.split(":", 1)[1]
     return spec.split("@", 1)[1] if spec.startswith("llamacpp:") and "@" in spec else spec
 
 
@@ -83,6 +86,9 @@ GREEDY = {"temperature": 0}
 
 def sampling(spec: str) -> dict:
     """AF_SAMPLING=greedy restores temperature 0 (harness v2 runs)."""
+    if spec.startswith("anthropic:"):  # the API sets no sampling on current Claude models; effort is the control
+        from .anthropic_backend import EFFORT
+        return {"effort": EFFORT}
     if os.environ.get("AF_SAMPLING") == "greedy":
         return dict(GREEDY)
     s = spec.lower()
@@ -110,6 +116,9 @@ def openai_chat(base_url: str, seed: int = 0, timeout: int = 900, params: dict |
 
 
 def chat(spec: str, seed: int = 0) -> harness.ChatFn:
+    if spec.startswith("anthropic:"):
+        from . import anthropic_backend
+        return anthropic_backend.chat(spec.split(":", 1)[1])
     kind, base = parse(spec)
     params = sampling(spec)
     if kind == "llamacpp":
@@ -136,6 +145,9 @@ def vision(spec: str, seed: int = 0, timeout: int = 300):
 
 def record(spec: str) -> dict:
     """What exactly served the model: Ollama digest, or llama-server's model file and build."""
+    if spec.startswith("anthropic:"):
+        from . import anthropic_backend
+        return anthropic_backend.record(spec.split(":", 1)[1])
     kind, base = parse(spec)
     if kind == "ollama":
         from .bench_a import model_digest
