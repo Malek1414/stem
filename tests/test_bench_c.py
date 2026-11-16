@@ -159,3 +159,19 @@ def test_agent_prompt_v2_is_added_to_the_system_prompt_and_v1_is_unchanged(tmp_p
     bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v2")
     assert bench_c.AGENT_PROMPTS["v1"] == "" and "what this request refers to" not in systems[0]
     assert systems[1].endswith(bench_c.AGENT_PROMPTS["v2"])
+
+
+def test_agent_v3_gets_one_self_check_before_it_may_finish(tmp_path):
+    t = traj()
+    task = bench_c.build_tasks([t])[0]
+    seen = []
+    def chat(msgs, tools):
+        seen.append(msgs[-1])
+        return {"role": "assistant", "content": "done.", "tool_calls": [{"function": {"name": "done", "arguments": {}}}]}
+    ask = lambda p: {"understood": 3, "approach": 3, "correctness": 3, "completeness": 3, "overall": 3, "reason": "-"}
+    r = bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v3")
+    assert len(seen) == 2 and seen[1]["role"] == "tool" and seen[1]["content"] == bench_c.SELF_CHECK["v3"]
+    assert r["steps"] == 2
+    seen.clear()
+    bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v2")
+    assert len(seen) == 1  # v2 has no self-check

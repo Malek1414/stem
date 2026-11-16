@@ -124,9 +124,12 @@ class Budget:
 def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workdir: Path,
               max_steps: int = 30, wall_seconds: int = 900, tools: list[dict] | None = None,
               handlers: dict[str, Callable[[dict], str]] | None = None, budget: Budget | None = None,
-              force_final: bool = False) -> dict:
+              force_final: bool = False, self_check: str | None = None) -> dict:
     """tools: the tool list this agent may use (default: all of TOOLS). handlers: extra tools implemented by the
-    caller (e.g. handoff). budget: shared with other agents on the same task; default is a private one."""
+    caller (e.g. handoff). budget: shared with other agents on the same task; default is a private one.
+    self_check: the first time the agent says it is finished (done, or a reply without calls) while budget is left,
+    it gets this message instead and goes on; the second time ends the run. The agent checks its own work: it sees
+    nothing of a grader."""
     tools = TOOLS if tools is None else tools
     allowed = {t["function"]["name"] for t in tools}
     handlers = handlers or {}
@@ -149,6 +152,11 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
         calls = reply.get("tool_calls") or []
         transcript.append({"assistant": reply.get("content", ""), "calls": [c["function"] for c in calls]})
         if not calls:
+            if self_check and budget.ok():
+                msgs.append({"role": "user", "content": self_check})
+                transcript[-1]["self_check"] = True
+                self_check = None
+                continue
             break
         for c in calls:
             fn = c["function"]
@@ -162,6 +170,11 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
             budget.steps_left -= 1
             name = ALIASES.get(fn["name"], fn["name"])
             if name == "done":
+                if self_check and budget.ok():
+                    msgs.append({"role": "tool", "content": self_check})
+                    transcript[-1]["self_check"] = True
+                    self_check = None
+                    break
                 finished = True
                 transcript[-1]["done"] = str(args.get("summary", ""))
                 break

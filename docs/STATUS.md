@@ -177,6 +177,7 @@ above Claude's CI: 5 tasks are bare follow-ups whose context the harness does no
 Reported to Malek; the target or the benchmark's context window needs his call. 27B run continues.
 15:51: 27B replay at 8/20: 1.88, same as the 35B (1.88) and Claude (1.75) on those 8; ~14 min/task, done ~17:30-18:00.
 O1 (operator training) waits: the Spark is busy with the 27B run (one heavy job at a time).
+16:52: 27B replay at 15/20: 2.80, vs 2.27 for the 35B and 2.73 for Claude on the same 15.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
@@ -196,8 +197,9 @@ recorded in each result:
       history, then by searching the work folder and recent files) before acting, and check every item of the ask
       before the final message. Run on the 35B coder (cheap, local) once the Spark is free; Claude only if it helps.
       16:10: `bench-c --agent v2` added (v1 = unchanged settings and files); work/queue12.sh runs it on the 35B.
-- [ ] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
+- [~] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
       (no access to the judge or the reference: selecting with the benchmark's judge would be gaming it).
+      16:55: harness self_check (once, when the agent first says it is done) = `--agent v3`; queue12 runs v2 then v3.
 - [ ] A3. Distillation: Claude trajectories through this harness on train-split tasks (with A1/A2), filtered by a
       separate checker, as LoRA data for the best local coder. Needs Malek's OK for the API spend first.
 

@@ -171,6 +171,12 @@ AGENT_PROMPTS = {
            "look at the files, folders and processes it names. Then do all of it. Before your final message, list "
            "each thing the user asked for, check that it is done, and do what is missing."),
 }
+AGENT_PROMPTS["v3"] = AGENT_PROMPTS["v2"]
+# v3 = v2 + one self-check when the agent first says it is done (STATUS A2)
+SELF_CHECK = {"v3": ("Before you finish: read the user's request again and your work so far. List each thing they "
+                     "asked for and whether it is really done (run or read something to check where you can). If "
+                     "anything is missing or wrong, do it now. When everything is done, give the final message to "
+                     "the user and call done.")}
 
 
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
@@ -203,7 +209,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
                       + missing_tools_note(steps[: task["step"]]))
         system += AGENT_PROMPTS[agent]
         run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds,
-                                force_final=True, tools=harness.TOOLS + tools if tools else None, handlers=handlers)
+                                force_final=True, self_check=SELF_CHECK.get(agent), tools=harness.TOOLS + tools if tools else None, handlers=handlers)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
     if run.get("infra_error"):  # the model never answered: do not judge, rerun later
