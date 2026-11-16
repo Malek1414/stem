@@ -160,6 +160,8 @@ Next: when queue9 ends, `svc.sh stop af-coder-t; svc.sh start af-coder-27`, `nvs
 bench-c --replay-tools --model llamacpp:8087@qwen38-heretic; Claude replay run in parallel once logged in.
 12:52: T3 bench C replay: tuned coder 2.15 (1.69-2.61) vs 2.35 untuned, no gain. queue9 now on bench C (no replay),
 then bench B. Claude run still blocked: the `ant` login expired on 2026-11-04.
+13:51: T3 bench C (no replay): tuned coder 1.90 (1.50-2.30) vs 2.20 untuned. Training lowered both runs. Bench B
+running since 13:27 (~35 min). `ant` login still expired.
 - [~] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
