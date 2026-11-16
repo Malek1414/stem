@@ -19,7 +19,7 @@ Claude's whole confidence interval.
 
 So under this harness 4.0 is not reachable by any model, including the one that did the original work: the limit
 is what context reaches the agent (the session history window and the working directory), not the model's size.
-Without those 5 tasks Claude averages 3.60 and the 35B coder 2.67.
+Without those 5 tasks Claude averages 3.60 and the 35B coder 2.60.
 
 ## 2026-11-16 · queue4: operator and coder baselines · snapshot v0002 · harness 2
 
