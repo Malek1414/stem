@@ -187,6 +187,10 @@ replaced the answer with a checklist. v4 (self-check quotes the current message,
 in queue13, started 18:56.
 19:42: A2 v4 2.45 = v2 (4 better, 4 worse): self-check dropped. Spark on af-coder-27; queue14 (27B, agent v2,
 bench C replay, ~3 h) started.
+21:52: Malek: do not block reads of ~/.claude/projects ("it can be beneficial"). Open question to him: cut those
+reads at each task's time (past readable, the turn's own outcome not). Until he decides, distill --build drops
+attempts that read the logs (3 of the first 20 did, one grepping the session files for an id); no benchmark
+run has read them so far (checked all bench_c_replay results).
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder

@@ -23,3 +23,9 @@ def test_subagent_segments_are_not_tasks(tmp_path):
             f.write(json.dumps({"file": name, "segment": 0, "steps": steps}) + "\n")
     tasks = bench_c.build_tasks(distill.train_trajectories(tmp_path))
     assert [t["file"] for t in tasks] == ["s.jsonl@0"]
+
+
+def test_attempts_that_read_the_session_logs_are_not_kept():
+    row = lambda cmd: {"episode": {"transcript": [{"assistant": "", "calls": [{"name": "Bash", "arguments": {"command": cmd}}]}]}}
+    assert distill.reads_logs(row("grep -rl 2f80 ~/.claude/projects"))
+    assert not distill.reads_logs(row("ls ~/Desktop"))

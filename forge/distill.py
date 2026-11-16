@@ -106,16 +106,23 @@ def run(snapshot: Path, model: str, n: int, seed: int, agent: str) -> Path:
     return runs
 
 
+def reads_logs(row: dict) -> bool:
+    return ".claude/projects" in json.dumps(row["episode"]["transcript"], ensure_ascii=False)
+
+
 def build(snapshot: Path, model: str, min_overall: int) -> dict:
     src = OUT / Path(snapshot).name / backends.label(f"claude-p:{model}") / "runs.jsonl"
     dst = Path(__file__).resolve().parent.parent / "data" / "sft" / f"{Path(snapshot).name}-distill"
     dst.mkdir(parents=True, exist_ok=True)
     rows = [json.loads(l) for l in open(src)]
-    kept = [r for r in rows if (r["grade"].get("overall") or 0) >= min_overall]
+    # an attempt that read the session logs may have read the turn's own outcome: it teaches a lookup shortcut that
+    # finds nothing on new work, so it is left out until reads are cut at the task's time (Malek decides, 16.11.)
+    peeked = [r for r in rows if reads_logs(r)]
+    kept = [r for r in rows if (r["grade"].get("overall") or 0) >= min_overall and not reads_logs(r)]
     with open(dst / "coder.jsonl", "w") as f:
         for r in kept:
             f.write(json.dumps(example(r["episode"]), ensure_ascii=False) + "\n")
-    stats = {"runs": len(rows), "kept": len(kept), "min_overall": min_overall,
+    stats = {"runs": len(rows), "kept": len(kept), "min_overall": min_overall, "dropped_read_logs": len(peeked),
              "mean_overall": round(sum(r["grade"].get("overall", 0) for r in rows) / max(1, len(rows)), 2)}
     (dst / "stats.json").write_text(json.dumps(stats, indent=1) + "\n")
     return stats
