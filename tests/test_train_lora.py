@@ -45,3 +45,33 @@ def test_two_steps_train_and_save(tmp_path):
     assert (tmp_path / "out" / "adapter_model.safetensors").exists()
     log = [json.loads(x) for x in (tmp_path / "out" / "log.jsonl").read_text().splitlines()]
     assert log[0]["step"] == 0 and log[-1]["step"] == 4
+
+
+def _tiny(tmp_path):
+    cfg = transformers.Qwen3Config(vocab_size=300, hidden_size=64, intermediate_size=128, num_hidden_layers=2,
+                                   num_attention_heads=4, num_key_value_heads=2, head_dim=16, max_position_embeddings=1024,
+                                   tie_word_embeddings=False)
+    return transformers.AutoModelForCausalLM.from_config(cfg)
+
+
+def test_load_model_matches_from_pretrained(tmp_path):
+    ref = _tiny(tmp_path)
+    ref.save_pretrained(tmp_path / "m")
+    got = train_lora.load_model(tmp_path / "m", torch.float32, "cpu")
+    for (k, a), (k2, b) in zip(sorted(ref.state_dict().items()), sorted(got.state_dict().items())):
+        assert k == k2 and torch.equal(a, b), k
+
+
+def test_load_model_maps_multimodal_checkpoint_names(tmp_path):
+    """Qwen3.5/3.6 checkpoints name the text weights model.language_model.* and carry a vision tower; the causal-LM
+    class names them model.* and has no vision tower."""
+    from safetensors.torch import save_file
+    ref = _tiny(tmp_path)
+    ref.save_pretrained(tmp_path / "m")
+    sd = {k.replace("model.", "model.language_model.", 1) if k.startswith("model.") else k: v.contiguous()
+          for k, v in ref.state_dict().items()}
+    sd["model.visual.patch_embed.weight"] = torch.zeros(2, 2)
+    (tmp_path / "m" / "model.safetensors").unlink()
+    save_file(sd, str(tmp_path / "m" / "model.safetensors"))
+    got = train_lora.load_model(tmp_path / "m", torch.float32, "cpu")
+    assert all(torch.equal(ref.state_dict()[k], v) for k, v in got.state_dict().items())

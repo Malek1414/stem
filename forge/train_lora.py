@@ -54,6 +54,36 @@ def lora_targets(model) -> list[str]:
     return out
 
 
+def load_model(path, dtype, device: str):
+    """The base model with one copy of its weights: built directly on the device (random init), then every tensor is
+    copied in from the safetensors files one at a time. transformers' from_pretrained held a second copy while
+    loading, which is 2 x 65 GB for the 35B coder on the Spark's 121 GB unified memory (T1, 16.11.2026).
+    Checkpoint names model.language_model.* (Qwen3.5/3.6 multimodal) map to the causal-LM's model.*; weights the
+    causal LM has no place for (vision tower, MTP head) are skipped."""
+    from safetensors import safe_open
+    from transformers import AutoConfig, AutoModelForCausalLM
+    path = Path(path)
+    with torch.device(device):
+        model = AutoModelForCausalLM.from_config(AutoConfig.from_pretrained(path), dtype=dtype)
+    own = dict(model.state_dict(keep_vars=True))
+    idx = path / "model.safetensors.index.json"
+    files = sorted(set(json.loads(idx.read_text())["weight_map"].values())) if idx.exists() else ["model.safetensors"]
+    done = set()
+    with torch.no_grad():
+        for f in files:
+            with safe_open(str(path / f), framework="pt", device=str(device)) as sf:
+                for k in sf.keys():
+                    name = k if k in own else k.replace("model.language_model.", "model.", 1)
+                    if name in own:
+                        own[name].copy_(sf.get_tensor(k))
+                        done.add(name)
+    tied = {"lm_head.weight"} if getattr(model.config.get_text_config(), "tie_word_embeddings", False) else set()
+    missing = set(own) - done - tied - {n for n, _ in model.named_buffers()}
+    if missing:
+        raise ValueError(f"{len(missing)} weights not in the checkpoint, e.g. {sorted(missing)[:3]}")
+    return model
+
+
 def load(path: Path) -> list[dict]:
     return [json.loads(x) for x in open(path) if x.strip()]
 
@@ -85,7 +115,7 @@ def main(argv=None) -> dict:
     a = ap.parse_args(argv)
 
     from peft import LoraConfig, PeftModel, get_peft_model
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoTokenizer
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -109,7 +139,7 @@ def main(argv=None) -> dict:
         total_steps = min(total_steps, a.max_steps)
 
     dtype = torch.bfloat16 if a.device == "cuda" else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(a.model, dtype=dtype).to(a.device)
+    model = load_model(a.model, dtype, a.device)
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
     model.enable_input_require_grads()

@@ -120,6 +120,12 @@ available (coder + judge), fine.
 - [x] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
       `cd ~/agent-forge && PYTHONPATH=$HOME/agent-forge HF_HUB_OFFLINE=1 setsid nohup ~/vllm-nano/.venv/bin/python -m latent bench --model Qwen/Qwen3-8B --n 200 --seed 7 --level hard --conditions text_full,text_card,kv_full,kv_q8,kv_goal,latentmas > hard200.log 2>&1 &`
       (~1 h, ~20 GB); when it ends record per-kind accuracy for kinds 1-3 in RESULTS.md.
+08:12: T1 attempt 1 (from_pretrained then .to(cuda)) and attempt 2 (device_map=cuda) both held two copies of the
+65 GB weights and drove the Spark to 113 GB used / swapping; both killed by hand before it locked up. Fix:
+train_lora.load_model builds the model on the device and copies tensors in one at a time from safetensors
+(tests added, 79 pass). Attempt 3 runs with ~/agent-forge/train_guard.sh (kills training if available < 8 GB):
+loaded fine, 21.2M trainable params (LoRA skips the fused MoE experts), 111 GB used during the first eval.
+No causal_conv1d / flash-linear-attention on the Spark, so the linear-attention layers use slow reference code.
 - [ ] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
       `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
