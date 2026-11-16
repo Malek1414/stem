@@ -101,6 +101,12 @@ vision path had no max_tokens. af-operator is STOPPED so coder + judge fit; work
 for queue5, then runs R for the coder and reruns the coder's bench C infra row. After queue6: `svc.sh stop
 af-coder-h; svc.sh start af-operator` and run R for the operator (one model + judge at a time from now on).
 Harness stays at 2 for R so R is comparable with queue4; harness v3 (nudge) is a separate, later decision.
+04:54: coder bench D (queue5) 0/43 as pixels: Qwen3.6 also answers in 0-1000 (15/43 = 34.9% re-read post hoc;
+22 answers empty, thinking used the 4096 cap). Convention fix now covers Qwen3.5/3.6/VL. Replay run (queue6) showed
+two harness bugs, both only on rows that were infra errors: an orphan tool message in the history (Jinja 500,
+now sent as user text) and a request over the 64k context (400, now ends the run and is graded, with a trimmed
+forced-final turn). work/queue7.sh reruns the replay infra rows after queue6. Spark memory: 1 GB free, 22 GB
+available (coder + judge), fine.
 - [ ] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
       `python -m forge bench-c data/snapshots/v0002 --model llamacpp:8084@qwen36-heretic --replay-tools` and the same
       with `--model llamacpp:8081@holo4-heretic`. Writes bench_c_replay.json (also an "offline" score). Record; commit.

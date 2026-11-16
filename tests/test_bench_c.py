@@ -108,3 +108,40 @@ def test_offline_subset():
     from forge import bench_c
     rows = [{"grade": {"overall": 4}, "external_tools": []}, {"grade": {"overall": 2}, "external_tools": []}]
     assert bench_c._subset(rows) == {"tasks": 2, "overall": 3.0, "ci95_overall": bench_c.mean_ci([4, 2])}
+
+
+def test_orphan_tool_result_becomes_user_text():
+    from forge.backends import to_openai
+    msgs = [{"role": "system", "content": "s"}, {"role": "user", "content": "why did you stop"},
+            {"role": "tool", "content": "late output"},
+            {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "Bash", "arguments": {"command": "ls"}}}]},
+            {"role": "tool", "content": "a.txt"}]
+    out = to_openai(msgs)
+    assert out[2] == {"role": "user", "content": "[tool output]\nlate output"}
+    assert out[4]["role"] == "tool" and out[4]["tool_call_id"] == out[3]["tool_calls"][0]["id"]
+
+
+def test_context_full_ends_the_run_without_infra_error(tmp_path):
+    from forge import harness
+
+    def chat(messages, tools):
+        raise harness.ContextFull("request (67771 tokens) exceeds the available context size (65536 tokens)")
+    run = harness.run_agent(chat, "sys", [], "do it", tmp_path)
+    assert run.get("infra_error") is None
+    assert "context full" in run["transcript"][-1]["error"]
+
+
+def test_context_full_still_gets_a_forced_final_answer(tmp_path):
+    from forge import harness
+    calls = []
+
+    def chat(messages, tools):
+        calls.append(len(messages))
+        if len(calls) == 1 or len(calls) == 2:
+            raise harness.ContextFull("exceeds the available context size")
+        return {"role": "assistant", "content": "here is what I did"}
+    history = [{"role": "user", "content": f"h{i}"} for i in range(30)]
+    run = harness.run_agent(chat, "sys", history, "do it", tmp_path, force_final=True)
+    assert run["infra_error"] is None and run["forced_final"]
+    assert run["transcript"][-1]["assistant"] == "here is what I did"
+    assert calls[2] < calls[1]

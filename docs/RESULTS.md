@@ -37,10 +37,13 @@ textual tool calls.
 |---|---|---|---|---|
 | operator Holo4-heretic, asked in 0-1000 coordinates | 43 | 0 | **53.5%** (38.9-67.5) | 4.1 |
 | operator Holo4-heretic, asked in pixels (first run) | 43 | 0 | 0% (scored as pixels) | 4.2 |
-| coder Qwen3.6-heretic | rerun running (first run had no token cap: 11k+ tokens per item, stopped) | | | |
+| coder Qwen3.6-heretic, asked in pixels, 4096-token cap | 43 | 0 | 0% scored as pixels; **34.9%** (15/43) re-read as 0-1000 (post hoc) | 42.5 |
 
-Reading D: Holo4 answers in its trained 0-1000 convention even when the prompt asks for pixels. Fixed in b99617d
-(per-model convention, recorded in settings). The operator's computer-use tools must convert the same way.
+Reading D: Holo4 and Qwen3.6 both answer in their trained 0-1000 convention even when the prompt asks for pixels.
+Qwen3.6 also left 22 of 43 answers empty: its thinking used the whole 4096-token cap (42 s per click), so the
+coder is ten times slower than the operator and much less reliable at clicking. Its 34.9% is a post-hoc re-read of
+the saved answers (empties count as misses), not a rerun; the convention fix now covers Qwen3.5/3.6/VL too. Fixed in b99617d
+and the next commit (per-model convention, recorded in settings). The operator's computer-use tools must convert the same way.
 
 ## 2026-11-15 · benchmark B · qwen3-coder-next-abliterated-128k · snapshot v0002
 

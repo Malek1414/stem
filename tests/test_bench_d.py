@@ -59,7 +59,8 @@ def test_parse_and_score():
 
 def test_holo_is_asked_and_scored_in_0_1000_coordinates():
     assert bench_d.coords("llamacpp:8081@holo4-heretic") == "norm1000"
-    assert bench_d.coords("llamacpp:8084@qwen36-heretic") == "pixel"
+    assert bench_d.coords("llamacpp:8084@qwen36-heretic") == "norm1000"
+    assert bench_d.coords("ollama:qwen3-coder-next") == "pixel"
     item = {"width": 1372, "height": 892, "target": [520, 100]}
     p = bench_d.to_pixels((379, 112), item, "norm1000")
     assert bench_d.score(item, p)["pass"]

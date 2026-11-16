@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 
 from . import harness, net
@@ -41,7 +42,14 @@ def to_openai(msgs: list[dict]) -> list[dict]:
             m["content"] = m.get("content") or ""
             pending = [c["id"] for c in calls]
         elif m.get("role") == "tool":
+            if not out or out[-1]["role"] not in ("assistant", "tool") or (out[-1]["role"] == "assistant" and not out[-1].get("tool_calls")):
+                # a result whose call is not right before it (a prompt typed while a tool ran): chat templates
+                # reject it ("A tool message must follow an assistant or tool message"), so it becomes plain text
+                out.append({"role": "user", "content": "[tool output]\n" + str(m.get("content", ""))})
+                continue
             m["tool_call_id"] = pending.pop(0) if pending else f"call_orphan_{n}"
+        else:
+            pending = []
         out.append(m)
     return out
 
@@ -90,8 +98,14 @@ def openai_chat(base_url: str, seed: int = 0, timeout: int = 900, params: dict |
             body["tools"] = tools
         req = urllib.request.Request(f"{base_url}/v1/chat/completions", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
-        with net.urlopen(req, timeout=timeout) as r:
-            return from_openai(json.loads(r.read()))
+        try:
+            with net.urlopen(req, timeout=timeout) as r:
+                return from_openai(json.loads(r.read()))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:500] if e.fp else ""
+            if e.code == 400 and "exceeds the available context" in detail:
+                raise harness.ContextFull(detail) from e
+            raise
     return chat
 
 

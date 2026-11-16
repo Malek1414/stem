@@ -121,11 +121,16 @@ PROMPT_NORM = ("This is a screenshot of a macOS screen. The agent controlling th
                "coordinates normalised to 0-1000 (0,0 is the top-left corner, 1000,1000 the bottom-right).")
 
 
+# Qwen3-VL / Qwen3.5 / Qwen3.6 (and Holo4, built on them) are trained on 0-1000 points. Qwen3.6-heretic, asked for
+# pixels, also answered in 0-1000 (16.11.2026: 15 of its 21 non-empty answers hit when read as 0-1000, 0 as pixels).
+NORM1000 = re.compile(r"holo|qwen3[._-]?[56]|qwen3-?vl")
+
+
 def coords(model: str) -> str:
     """The point convention a model was trained on. Holo (H company) answers in 0-1000 normalised coordinates even
     when asked for pixels (16.11.2026: 0/43 read as pixels, 25/43 read as 0-1000), so it is asked in its own
     convention and the answer is converted to pixels before scoring."""
-    return "norm1000" if "holo" in model.lower() else "pixel"
+    return "norm1000" if NORM1000.search(model.lower()) else "pixel"
 
 
 def to_pixels(point, item: dict, convention: str):

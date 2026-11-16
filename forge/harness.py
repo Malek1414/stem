@@ -17,6 +17,11 @@ from typing import Callable
 
 ChatFn = Callable[[list[dict], list[dict]], dict]
 
+
+class ContextFull(Exception):
+    """The request no longer fits the model's context window. The agent has used up its context: the run ends
+    there like a run out of steps or wall time, and is graded, not counted as an infrastructure error."""
+
 # Harness v2 (2026-11-15): fixed context window for every model (HF GGUFs otherwise get Ollama's small default),
 # longer rendered history, and an optional forced final reply when the step budget runs out.
 HARNESS_VERSION = 2
@@ -133,6 +138,9 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
     while budget.ok():
         try:
             reply = chat(msgs, tools)
+        except ContextFull as e:
+            transcript.append({"error": f"context full: {e}", "infra": False})
+            break
         except Exception as e:  # the model never answered: an infrastructure failure, not a model failure
             transcript.append({"error": repr(e), "infra": True})
             infra_error = repr(e)
@@ -175,7 +183,12 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
     if force_final and infra_error is None and not has_text:
         try:  # one tool-free turn so a model that ran out of steps still answers the user
             ask = msgs + [{"role": "user", "content": FINAL_PROMPT}]
-            reply = chat(ask, [])
+            try:
+                reply = chat(ask, [])
+            except ContextFull:  # keep the task prompt and the last turns, drop the middle
+                p = len(history) + 1
+                ask = msgs[: 1] + msgs[p: p + 1] + msgs[-10:] + [{"role": "user", "content": FINAL_PROMPT}]
+                reply = chat(ask, [])
             text = reply.get("content", "") or ""
             if "<tool_call>" in text:  # some models write a tool call as text when tools are withdrawn: ask once more
                 reply = chat(ask + [{"role": "assistant", "content": text},
