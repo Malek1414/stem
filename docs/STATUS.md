@@ -206,6 +206,24 @@ v1. Spark free until the A3 data is ready (~01:00).
       af-operator-t <coder>` (port 8086, `nvsync open malekhassan 8086`), bench-d and bench-c --replay-tools with
       --model llamacpp:8086@holo4-heretic-tuned, bench-b duo with the best coder. Record; commit.
 
+## Overnight 16-17.11 (Malek left at ~22:50: "keep running on schedule overnight")
+
+Watcher steps, in order; one Spark job at a time, never poll the Spark in a loop:
+- [~] N1. 27B training smoke test (`DATA=data/sft/v0002/coder.jsonl train.sh coder27 smoke 60000 --max-steps 2
+      --max-len 4096`, log ~/agent-forge/train_coder27_smoke.log). Pass = "train exit 0" and a gguf. If it fails:
+      diagnose, fix locally with a test, push train_lora.py by base64 (work/push_train27.js pattern), rerun.
+- [ ] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
+      (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
+      same folder), record stats in RESULTS.
+- [ ] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
+      matches itself), `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1 0 --max-len 8192` (all
+      examples; 2 epochs = --max-tokens 0 then resume if the data is small). Record eval loss.
+- [ ] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
+      bench-c --replay-tools --model llamacpp:8088@qwen38-heretic-tuned (queue16). Compare with 2.85 (27B v1).
+- [ ] N5. Meanwhile, if queue15 finished and the Spark is busy: extend A3 to more train turns
+      (`forge.distill --n 400 --seed 1` reuses the first 100 only if the task file matches; use a new seed and
+      append) so round 2 has more data.
+
 ## Decision (Malek, 2026-11-16 16:00): the benchmark and the target stay
 
 "we will not lower benchmarks to reach them". Benchmark C (tasks, history window, work folder, judge, rubric) and the
