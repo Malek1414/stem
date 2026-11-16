@@ -291,7 +291,11 @@ def _save(out: Path, model: str, snapshot: Path, settings: dict, record: dict, r
                           **{k: mean(k) for k in (*CRITERIA, "overall")},
                           "ci95_overall": mean_ci([g["overall"] for g in graded]),
                           "null_control_overall": round(sum(nulls) / len(nulls), 3) if nulls else None,
-                          "mean_seconds": round(sum(r["seconds"] for r in rows_ok) / len(rows_ok), 1) if rows_ok else None},
+                          "mean_seconds": round(sum(r["seconds"] for r in rows_ok) / len(rows_ok), 1) if rows_ok else None,
+                          # reads of the session logs are allowed (Malek, 16.11.) but may reach the turn's own outcome:
+                          # counted so a score raised that way is visible
+                          "read_session_logs": sum(".claude/projects" in json.dumps(r.get("attempt", {}), ensure_ascii=False)
+                                                   for r in rows_ok)},
               # tasks whose original turn used only file/shell tools: the part a no-apps run can fully do
               "offline": _subset([r for r in rows_ok if r.get("external_tools") == []]),
               "tasks": rows}

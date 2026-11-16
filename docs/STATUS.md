@@ -191,6 +191,8 @@ bench C replay, ~3 h) started.
 reads at each task's time (past readable, the turn's own outcome not). Until he decides, distill --build drops
 attempts that read the logs (3 of the first 20 did, one grepping the session files for an id); no benchmark
 run has read them so far (checked all bench_c_replay results).
+22:00: Malek: leave the log-reading attempts out of training ("more honest"); reads stay open. Bench C now
+reports overall.read_session_logs (tasks whose attempt touched ~/.claude/projects) next to every score.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
