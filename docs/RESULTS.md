@@ -1,5 +1,26 @@
 # agent-forge results log
 
+## 2026-11-16 · Claude ceiling on benchmark C with replay · Claude Opus 5.5, effort high, Anthropic API
+
+The model the sessions came from, through the same harness, replayed tools, judge and 20 tasks (forge
+anthropic_backend: thinking blocks replayed, prompt caching, max 16k tokens per reply). It is a reference, never a
+candidate. One task first failed on a backend bug (a turn whose calls got only some results; fixed in f55705a) and
+was rerun.
+
+**Overall 2.95 (2.31-3.59)**, offline subset 3.00. The 35B coder's 2.35 is 0.6 below it; the target 4.0 is above
+Claude's whole confidence interval.
+
+- Claude scores 4-5 on 10 of 20 tasks: the ones whose request carries its own context ("the numbers on hoopergpt are
+  pure cap", "I have 120 credits...", "I submitted").
+- It scores 1 on 5 tasks, all bare follow-ups whose subject is outside the window the harness hands over:
+  "Continue", "continue with the build", "why did you stop", "Yes, do it. Upload this version now...", "is there
+  anything now in my github...". The judge's reasons: it acted on an unrelated project. Three of them are 1 for the
+  35B coder as well.
+
+So under this harness 4.0 is not reachable by any model, including the one that did the original work: the limit
+is what context reaches the agent (the session history window and the working directory), not the model's size.
+Without those 5 tasks Claude averages 3.60 and the 35B coder 2.67.
+
 ## 2026-11-16 · queue4: operator and coder baselines · snapshot v0002 · harness 2
 
 Operator: Holo4-35B-A3B-heretic Q4 (llama.cpp, Spark port 8081). Coder: llmfan46 Qwen3.6-35B-A3B-uncensored-heretic
@@ -26,6 +47,7 @@ a252aa4); with 19 tasks it was 2.26.
 | coder Qwen3.6-heretic | 20 | 0 | 2.85 | 2.45 | 2.20 | 1.90 | **2.35** (1.89-2.81) | 2.13 | 101 |
 | operator Holo4-heretic | 20 | 0 | 2.35 | 1.90 | 1.50 | 1.40 | **1.85** (1.49-2.21) | 2.00 | 40 |
 | coder Qwen3.6-heretic + LoRA v1 | 20 | 0 | 2.60 | 2.35 | 1.85 | 1.75 | **2.15** (1.69-2.61) | 2.00 | 139 |
+| reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
 context) and were rerun after a252aa4. Replay lifts the tasks that need app/web tools to 2.50 (12 tasks), but the

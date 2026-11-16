@@ -172,6 +172,9 @@ queue10. 27B: first task took 609 s (35B: 181 s), so its replay run needs ~2 h.
 when only some calls of a turn got results). Fixed in to_messages (flush after partial results) with a test;
 the failed task reruns after queue11 (bench C resumes graded tasks). 27B at 3/20: 1.67 vs 2.00 for the 35B on the
 same tasks, ~10-13 min per task.
+15:05: Claude ceiling (bench C replay, 20/20 after the rerun): 2.95 (2.31-3.59), offline 3.00. The target 4.0 is
+above Claude's CI: 5 tasks are bare follow-ups whose context the harness does not hand over (Claude 1 on all).
+Reported to Malek; the target or the benchmark's context window needs his call. 27B run continues.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
