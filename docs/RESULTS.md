@@ -25,6 +25,7 @@ a252aa4); with 19 tasks it was 2.26.
 |---|---|---|---|---|---|---|---|---|---|
 | coder Qwen3.6-heretic | 20 | 0 | 2.85 | 2.45 | 2.20 | 1.90 | **2.35** (1.89-2.81) | 2.13 | 101 |
 | operator Holo4-heretic | 20 | 0 | 2.35 | 1.90 | 1.50 | 1.40 | **1.85** (1.49-2.21) | 2.00 | 40 |
+| coder Qwen3.6-heretic + LoRA v1 | 20 | 0 | 2.60 | 2.35 | 1.85 | 1.75 | **2.15** (1.69-2.61) | 2.00 | 139 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
 context) and were rerun after a252aa4. Replay lifts the tasks that need app/web tools to 2.50 (12 tasks), but the
@@ -187,7 +188,10 @@ max-len 8192, one pass over 779 coder examples (5.5M tokens) from snapshot v0002
 |---|---|---|---|
 | eval loss | 1.064 | 0.935 | 0.928 |
 
-The loss gain is real but says nothing about the benchmark yet; T3 (queue9) measures that.
+The loss gain did not carry over. Benchmark C with replay: **2.15** (1.69-2.61) against 2.35 untuned; per task 5
+better, 9 worse, 6 the same; offline 2.00 against 2.13. Within noise of the untuned coder, and not better. Imitating
+Claude's logged turns (with its thinking blanked out) at 8k tokens does not teach the model to read the request
+and finish it. Malek then decided to switch the coder base to the dense Qwen3.8-27B (12:50).
 
 ## 2026-11-16 · latent hard tasks at n=200 (STATUS D2) · Qwen3-8B, Spark GB10, bf16, seed 7, short context
 
