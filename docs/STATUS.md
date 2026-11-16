@@ -150,6 +150,14 @@ af-coder-t up on the Spark with coder-v1 (checked /lora-adapters), Sync tunnels 
 - [x] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
       `setsid nohup ./train.sh coder v1 <tokens> > train_coder_v1.log 2>&1 &` (link message train-done). Check
       eval_loss falls in adapters/coder-v1/log.jsonl.
+12:50: Malek: switch the coder base to the 27B (dense, ~9x the active parameters of the 35B-A3B), keep queue9
+running first, then score the 27B, then score Claude as the ceiling. Done so far: 0bserverx Qwen3.8-27B heretic
+GGUF Q4_K_M + mmproj in ~/agent-forge/models/qwen38-heretic, bf16 safetensors downloading to hf/qwen38-heretic
+(Qwen3_5ForCausalLM, 64 layers, hidden 5120); svc.sh entries af-coder-27 (8087) and af-coder-27t (8088, newest
+adapters/coder27-*). forge/anthropic_backend.py added (anthropic:claude-opus-5-5, effort high, same harness and
+judge); the `ant` login has expired, waiting for Malek to run `ant auth login`.
+Next: when queue9 ends, `svc.sh stop af-coder-t; svc.sh start af-coder-27`, `nvsync open malekhassan 8087`,
+bench-c --replay-tools --model llamacpp:8087@qwen38-heretic; Claude replay run in parallel once logged in.
 - [~] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
