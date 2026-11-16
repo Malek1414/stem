@@ -126,12 +126,19 @@ train_lora.load_model builds the model on the device and copies tensors in one a
 (tests added, 79 pass). Attempt 3 runs with ~/agent-forge/train_guard.sh (kills training if available < 8 GB):
 loaded fine, 21.2M trainable params (LoRA skips the fused MoE experts), 111 GB used during the first eval.
 No causal_conv1d / flash-linear-attention on the Spark, so the linear-attention layers use slow reference code.
-- [ ] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
+08:58: T1 attempt 3 got through load and eval but the first training step at max-len 16384 used the last free
+memory; the guard killed it (08:13). Added --max-mem-gb (default 100: PyTorch raises OOM instead of swapping the
+Spark) and ran at --max-len 8192: works, 124 tok/s with reference kernels. Installed flash-linear-attention 0.6.0
+(+ fla-core, --no-deps, pure Triton) in ~/vllm-nano/.venv: 417-550 tok/s (3.4-4.4x). Smoke result: eval loss
+1.0636 -> 1.0485 after 3 steps, adapter saved, GGUF 85 MB, llama-server af-coder-t loads it and answers sensibly
+(60 tok/s). T1 done. T2 started 08:56: `./train.sh coder v1 5500000 --max-len 8192 --max-mem-gb 100` with
+train_guard.sh; 779 examples (about all coder data at 8k), 98 steps, expected ~3.5-4 h (done ~12:30).
+- [x] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
       `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
       not, fix train_lora.py to load the text model), memory stays under ~110 GB (free -g), note tok_per_s, and the
       GGUF conversion works. Fix what fails (max-len 8192 if memory runs out).
-- [ ] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
+- [~] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
       `setsid nohup ./train.sh coder v1 <tokens> > train_coder_v1.log 2>&1 &` (link message train-done). Check
       eval_loss falls in adapters/coder-v1/log.jsonl.
 - [ ] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest

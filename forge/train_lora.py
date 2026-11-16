@@ -111,6 +111,9 @@ def main(argv=None) -> dict:
     ap.add_argument("--save-every", type=int, default=50)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--max-mem-gb", type=float, default=100,
+                    help="cap on what PyTorch may allocate on the GPU; on the Spark's unified memory going over it "
+                         "raises a clean out-of-memory error instead of swapping the whole machine")
     ap.add_argument("--max-steps", type=int, default=0, help="stop after this many optimizer steps (smoke tests)")
     a = ap.parse_args(argv)
 
@@ -139,6 +142,9 @@ def main(argv=None) -> dict:
         total_steps = min(total_steps, a.max_steps)
 
     dtype = torch.bfloat16 if a.device == "cuda" else torch.float32
+    if a.device == "cuda":
+        total = torch.cuda.get_device_properties(0).total_memory
+        torch.cuda.set_per_process_memory_fraction(min(1.0, a.max_mem_gb * 2**30 / total))
     model = load_model(a.model, dtype, a.device)
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
