@@ -134,6 +134,9 @@ Spark) and ran at --max-len 8192: works, 124 tok/s with reference kernels. Insta
 (60 tok/s). T1 done. T2 started 08:56: `./train.sh coder v1 5500000 --max-len 8192 --max-mem-gb 100` with
 train_guard.sh; 779 examples (about all coder data at 8k), 98 steps, expected ~3.5-4 h (done ~12:30).
 09:51: T2 at step 31/98, ~555 tok/s, train loss 1.0-1.5, 98 GB used, guard quiet; ETA ~11:55.
+10:52: T2 at step 65/98; eval loss 1.0636 -> 0.935 at step 50. work/queue9.sh is ready for T3 (bench-c replay,
+bench-c, bench-b on llamacpp:8085@qwen36-heretic-tuned). When T2 ends: `svc.sh start af-coder-t` (picks the newest
+adapter, coder-v1), check /lora-adapters names coder-v1, then start queue9 on the Mac.
 - [x] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
       `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
