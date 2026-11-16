@@ -168,6 +168,10 @@ on 8087, 96 GB available, decode ~12 tok/s (dense, vs the MoE's ~3B active). Tun
 14:20: Malek logged in again (`ant auth login`). Claude backend smoke test passed (tool call, thinking replay).
 queue11 (Claude Opus 5.5 effort high, bench-c --replay-tools, reference ceiling) started 14:16 alongside
 queue10. 27B: first task took 609 s (35B: 181 s), so its replay run needs ~2 h.
+14:55: Claude replay at 17/20, mean 3.0 so far; 1 infra error ('why did you stop': 400, a call with no tool_result
+when only some calls of a turn got results). Fixed in to_messages (flush after partial results) with a test;
+the failed task reruns after queue11 (bench C resumes graded tasks). 27B at 3/20: 1.67 vs 2.00 for the 35B on the
+same tasks, ~10-13 min per task.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder

@@ -42,9 +42,9 @@ def to_messages(msgs: list[dict], raw: dict) -> tuple[str, list[dict]]:
         else:
             out.append({"role": role, "content": blocks})
 
-    def flush():  # a call whose result never came still needs one before anything else follows it
+    def flush():  # every call needs a result before anything else follows it, also when only some results came
         nonlocal pending
-        if pending and out and out[-1]["role"] == "assistant":
+        if pending and out:
             add("user", [{"type": "tool_result", "tool_use_id": p, "content": "(not run)"} for p in pending])
         pending = []
 
@@ -73,7 +73,7 @@ def to_messages(msgs: list[dict], raw: dict) -> tuple[str, list[dict]]:
                 out.append({"role": "user", "content": [{"type": "text", "text": "(conversation so far)"}]})
             add("assistant", blocks)
         elif role == "tool":
-            if pending and out and out[-1]["role"] in ("assistant", "user"):
+            if pending:
                 add("user", [{"type": "tool_result", "tool_use_id": pending.pop(0), "content": str(content) or "(no output)"}])
             else:
                 add("user", [{"type": "text", "text": "[tool output]\n" + str(content)}])

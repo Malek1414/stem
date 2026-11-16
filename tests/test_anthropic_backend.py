@@ -53,3 +53,15 @@ def test_unanswered_call_gets_a_result_before_the_next_prompt():
             {"role": "user", "content": "b"}]
     _, out = ab.to_messages(msgs, {})
     assert out[2]["content"][0]["type"] == "tool_result" and out[2]["content"][1]["text"] == "b"
+
+
+def test_partially_answered_calls_get_a_result_before_the_next_turn():
+    # two calls, one result, then the next assistant turn: the second call still needs a tool_result (bench C 400)
+    from forge.anthropic_backend import to_messages
+    calls = [{"id": "a", "function": {"name": "Bash", "arguments": "{}"}},
+             {"id": "b", "function": {"name": "Bash", "arguments": "{}"}}]
+    _, out = to_messages([{"role": "user", "content": "go"}, {"role": "assistant", "content": "", "tool_calls": calls},
+                          {"role": "tool", "content": "ok"}, {"role": "assistant", "content": "done"}], {})
+    results = [b for b in out[2]["content"] if b["type"] == "tool_result"]
+    assert [r["tool_use_id"] for r in results] == ["toolu_h1", "toolu_h2"]
+    assert results[1]["content"] == "(not run)" and out[3]["role"] == "assistant"
