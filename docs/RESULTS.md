@@ -10,10 +10,27 @@ max 4096 tokens per reply, seed 0. Judge for C stays greedy. Infrastructure erro
 
 | Model | Graded | Infra | Understood | Approach | Correctness | Completeness | Overall (95% CI) | s/task |
 |---|---|---|---|---|---|---|---|---|
-| coder Qwen3.6-heretic | 19 | 1 | 2.74 | 2.16 | 2.05 | 1.74 | **2.26** (1.75-2.78) | 129 |
+| coder Qwen3.6-heretic | 20 | 0 | 2.65 | 2.10 | 2.00 | 1.70 | **2.20** (1.70-2.71) | 124 |
 | operator Holo4-heretic | 20 | 0 | 2.50 | 1.70 | 1.80 | 1.65 | **1.90** (1.37-2.43) | 57 |
 | earlier: qwen3-coder-next (v1 harness) | | | | | | | 1.63 | |
 | null control (empty answer) | | | | | | | 1.00 | |
+
+The coder's row includes the one task that first hit an infrastructure error (orphan tool message, fixed in
+a252aa4); with 19 tasks it was 2.26.
+
+**Benchmark C with replayed app/web tools** (`--replay-tools`: app and web tools answer from the recording, so a 4 or
+5 is reachable; "offline" = the 8 tasks that need no such tool). This is the score the training target (>= 4.0) uses.
+
+| Model | Graded | Infra | Understood | Approach | Correctness | Completeness | Overall (95% CI) | Offline (8) | s/task |
+|---|---|---|---|---|---|---|---|---|---|
+| coder Qwen3.6-heretic | 20 | 0 | 2.85 | 2.45 | 2.20 | 1.90 | **2.35** (1.89-2.81) | 2.13 | 101 |
+| operator Holo4-heretic | running | | | | | | | | |
+
+Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
+context) and were rerun after a252aa4. Replay lifts the tasks that need app/web tools to 2.50 (12 tasks), but the
+distance to 4.0 is large. The judge's reasons: in all 5 tasks scored 1 the coder acted on the wrong thing (a study
+plan, an iOS build, an unrelated repo instead of what was asked), and most 2-3s are partial answers that leave out
+items the user wanted. Reading the request in a long history and finishing all of it is what training has to fix.
 
 **Benchmark B** (repo tasks, pass = the files Claude changed are changed and >= 75% similar):
 
