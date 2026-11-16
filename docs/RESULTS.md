@@ -24,13 +24,17 @@ a252aa4); with 19 tasks it was 2.26.
 | Model | Graded | Infra | Understood | Approach | Correctness | Completeness | Overall (95% CI) | Offline (8) | s/task |
 |---|---|---|---|---|---|---|---|---|---|
 | coder Qwen3.6-heretic | 20 | 0 | 2.85 | 2.45 | 2.20 | 1.90 | **2.35** (1.89-2.81) | 2.13 | 101 |
-| operator Holo4-heretic | running | | | | | | | | |
+| operator Holo4-heretic | 20 | 0 | 2.35 | 1.90 | 1.50 | 1.40 | **1.85** (1.49-2.21) | 2.00 | 40 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
 context) and were rerun after a252aa4. Replay lifts the tasks that need app/web tools to 2.50 (12 tasks), but the
 distance to 4.0 is large. The judge's reasons: in all 5 tasks scored 1 the coder acted on the wrong thing (a study
 plan, an iOS build, an unrelated repo instead of what was asked), and most 2-3s are partial answers that leave out
 items the user wanted. Reading the request in a long history and finishing all of it is what training has to fix.
+
+The operator gains nothing from replay: 1.85 against 1.90 without it (the difference is noise; external-tool tasks
+1.75 over 12). It is fast (40 s per task) but its answers are shallow (correctness 1.50, completeness 1.40). The
+coder stays the better base for the C target; the operator's job is clicks (D 53.5%) and handoffs.
 
 **Benchmark B** (repo tasks, pass = the files Claude changed are changed and >= 75% similar):
 

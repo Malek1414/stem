@@ -109,7 +109,9 @@ forced-final turn). work/queue7.sh reruns the replay infra rows after queue6. Sp
 available (coder + judge), fine.
 05:53: coder R done: replay 2.35 (1.89-2.81), offline 2.13, 20 graded; coder bench C (no replay) now 20 graded,
 2.20. Spark swapped: af-coder-h stopped, af-operator up; work/queue8.sh (log queue8.log) runs R for the operator.
-- [ ] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
+06:52: operator R done (queue8 ended 06:12): replay 1.85 (1.49-2.21), offline 2.00, 20 graded, 0 infra.
+Next: D2 (latent hard bench) on the Spark, then T1.
+- [x] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
       `python -m forge bench-c data/snapshots/v0002 --model llamacpp:8084@qwen36-heretic --replay-tools` and the same
       with `--model llamacpp:8081@holo4-heretic`. Writes bench_c_replay.json (also an "offline" score). Record; commit.
 - [ ] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
