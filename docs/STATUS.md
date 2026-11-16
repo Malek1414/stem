@@ -133,6 +133,7 @@ Spark) and ran at --max-len 8192: works, 124 tok/s with reference kernels. Insta
 1.0636 -> 1.0485 after 3 steps, adapter saved, GGUF 85 MB, llama-server af-coder-t loads it and answers sensibly
 (60 tok/s). T1 done. T2 started 08:56: `./train.sh coder v1 5500000 --max-len 8192 --max-mem-gb 100` with
 train_guard.sh; 779 examples (about all coder data at 8k), 98 steps, expected ~3.5-4 h (done ~12:30).
+09:51: T2 at step 31/98, ~555 tok/s, train loss 1.0-1.5, 98 GB used, guard quiet; ETA ~11:55.
 - [x] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
       `cd ~/agent-forge && setsid nohup ./train.sh coder smoke 200000 --max-steps 3 --save-every 3 > train_smoke.log 2>&1 &`.
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
