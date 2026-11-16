@@ -82,6 +82,12 @@ not a harness bug (check() reads files directly, so new untracked files count). 
 none: it writes a brainstorming spec (copied from the history) or a reportlab PDF instead of the file Claude
 changed; only 2 of 11 runs called done. B is strict file matching (old model also 0/7), so it does
 not separate models yet; say so in D. queue4 is on bench-b operator+coder-h (started 01:23).
+02:51: operator+coder-h bench B done: 0/72 checks, 12 graded, 0 infra errors, only 3 handoffs to the coder.
+7 of 12 runs ended at step 0 (~20 s): Holo4-heretic answered in prose (a drop-in code sample, a question back,
+or a tool call written as text) instead of calling a tool, and the harness ends a run on the first reply
+without tool calls. Candidate fix for D/R (not applied, so queue4 stays comparable): harness v3 nudges once
+when a reply has no tool call and no done, and parses textual tool calls. queue4 is on bench-b
+coder-h+coder-h (started 01:57).
 - [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
       bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
       "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
