@@ -94,9 +94,9 @@ coder-h+coder-h (started 01:57).
       from saved results when settings match, and rerun infra_error rows). If a job ended with only infra errors,
       find out why (curl the server through its Sync port by hand), fix, rerun that job. If the Spark's servers are
       down: `~/agent-forge/svc.sh status`, `svc.sh start af-operator af-coder-h`.
-- [x] D. (done 04:05, RESULTS.md "queue4"; coder bench D row is filled in when work/queue5.log says done) When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
+- [x] D. (done 03:58, RESULTS.md "queue4"; coder bench D row is filled in when work/queue5.log says done) When queue4 is done: write results per model to docs/RESULTS.md (B mean score + CI + infra errors, C overall
       + null control, D accuracy + seconds), compare with the baseline, commit.
-04:05: bench D fixed (b99617d): Holo4 answers in 0-1000 coordinates (now 53.5%, was 0% read as pixels) and the
+03:58: bench D fixed (b99617d): Holo4 answers in 0-1000 coordinates (now 53.5%, was 0% read as pixels) and the
 vision path had no max_tokens. af-operator is STOPPED so coder + judge fit; work/queue6.sh (log queue6.log) waits
 for queue5, then runs R for the coder and reruns the coder's bench C infra row. After queue6: `svc.sh stop
 af-coder-h; svc.sh start af-operator` and run R for the operator (one model + judge at a time from now on).
