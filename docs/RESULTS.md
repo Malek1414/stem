@@ -176,6 +176,28 @@ Reading:
 - Across machines it is out of the question at 2.4 Mbit/s (0.4-6 GB per handoff). Latent handoff only makes
   sense with operator and coder on the same box.
 
+## 2026-11-16 · latent hard tasks at n=200 (STATUS D2) · Qwen3-8B, Spark GB10, bf16, seed 7, short context
+
+Same task generator as the pilot below, 50 tasks per kind. Kinds 1-3 are the ones that separate (kind 0 is
+trivial, 49-50/50 everywhere). Raw file on the Spark: ~/agent-forge/results/latent/Qwen_Qwen3-8B_n200_s7_hard.json.
+
+| condition | kinds 1-3 (95% CI) | k1 | k2 | k3 | all 4 kinds | bytes sent | sender s | Mac to Spark e2e s |
+|---|---|---|---|---|---|---|---|---|
+| kv_full = kv_q8 | 0.273 (0.21-0.35) | 21/50 | 9/50 | 11/50 | 0.450 | 127 MB / 64 MB | 0.22 | 11.0 / 5.9 |
+| text_full | 0.293 (0.23-0.37) | 23/50 | 9/50 | 12/50 | 0.465 | 3 KB | 0 | 0.59 |
+| latentmas | 0.387 (0.31-0.47) | 23/50 | 21/50 | 14/50 | 0.535 | 135 MB | 2.16 | 13.6 |
+| kv_goal | 0.420 (0.34-0.50) | 26/50 | 25/50 | 12/50 | 0.560 | 132 MB | 0.24 | 11.4 |
+| text_card | **0.647 (0.57-0.72)** | 33/50 | 34/50 | 30/50 | 0.735 | 207 B | 5.17 | 5.5 |
+
+Reading: the pilot's ordering holds and is now outside the noise. A written task card, where the operator works
+the answer out before handing off, beats every latent handoff (0.65 against at most 0.42, CIs do not overlap), and
+it is 207 bytes instead of 130 MB. Handing over the raw KV cache is the same as handing over the raw text (0.965
+agreement), so it buys nothing but transfer time. Giving the operator the goal before prefill (kv_goal) or letting
+it think in latent space (latentmas) helps the value kind (k2) but not the arithmetic kind (k3). Decision for the
+link: the operator sends the coder a text task card (as forge.duo already does); latent handoff is not worth it on
+this hardware or across machines. Caveat as before: the text_card sender saw the question, so part of its lead is
+that it answers the question itself; kv_goal is the fair "knows the goal" comparison and still loses.
+
 ## 2026-11-15 · latent hard-task pilot (--level hard) · Qwen3-8B, Spark GB10, bf16, n=40, short context
 
 Multi-hop tasks with decoys (overridden constants, a legacy module with the same function names, handled errors

@@ -115,7 +115,9 @@ available (coder + judge), fine.
 - [x] R. Replay baselines (servers af-operator + af-coder-h still up, right after D): on the Mac
       `python -m forge bench-c data/snapshots/v0002 --model llamacpp:8084@qwen36-heretic --replay-tools` and the same
       with `--model llamacpp:8081@holo4-heretic`. Writes bench_c_replay.json (also an "offline" score). Record; commit.
-- [ ] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
+07:55: D2 done (ended 07:31): kinds 1-3 text_card 0.647, kv_goal 0.420, latentmas 0.387, text_full 0.293, kv_full
+0.273 (n=150 each); recorded in RESULTS.md. Spark idle (3 GB used). Starting T1.
+- [x] D2. `~/agent-forge/svc.sh stop af-operator af-coder-h`, then on the Spark run
       `cd ~/agent-forge && PYTHONPATH=$HOME/agent-forge HF_HUB_OFFLINE=1 setsid nohup ~/vllm-nano/.venv/bin/python -m latent bench --model Qwen/Qwen3-8B --n 200 --seed 7 --level hard --conditions text_full,text_card,kv_full,kv_q8,kv_goal,latentmas > hard200.log 2>&1 &`
       (~1 h, ~20 GB); when it ends record per-kind accuracy for kinds 1-3 in RESULTS.md.
 - [ ] T1. Training smoke test (Spark GPU free: no llama-servers, Ollama unloaded with keep_alive 0):
