@@ -77,6 +77,11 @@ If queue4 waits on port 8084 and the judge is gone, run `svc.sh start af-coder-h
 2.263 (1.75-2.78), 19 graded, 1 infra error (rerun it later: bench-c resumes and reruns infra rows).
 00:51: operator (Holo4-heretic) bench C done: 1.90 (1.37-2.43), 20 graded, 0 infra errors. coder_after_judge.sh
 restarted af-coder-h (60 GB free); queue4 is on bench-b coder-h (started 00:14).
+01:51: coder-h bench B done: 0/68 checks over 10 graded tasks, 1 infra error (#591, 0.5 s; rerun later). Checked:
+not a harness bug (check() reads files directly, so new untracked files count). The coder edits other files or
+none: it writes a brainstorming spec (copied from the history) or a reportlab PDF instead of the file Claude
+changed; 8 of 11 runs hit the 30-step/900 s limit. B is strict file matching (old model also 0/7), so it does
+not separate models yet; say so in D. queue4 is on bench-b operator+coder-h (started 01:23).
 - [ ] C. Mac queue work/queue4.sh (log work/queue4.log; jobs: bench-c coder-h, bench-c operator, bench-b coder-h,
       bench-b operator+coder-h, bench-b coder-h+coder-h, bench-d operator, bench-d coder-h): if not running and not
       "queue4 done", restart it with `nohup caffeinate -i work/queue4.sh > work/queue4.log 2>&1 &` (benches resume
