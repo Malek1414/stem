@@ -215,6 +215,9 @@ Watcher steps, in order; one Spark job at a time, never poll the Spark in a loop
       23:05: passed after two fixes: tool-call arguments as dicts for the Qwen3.8 template (70bbd9d), and LoRA
       conversion without an MTP head (work/convert_lora_nomtp.py, used by train.sh for coder27 only). 2 steps at
       ~165 tok/s (a third of the 35B's 555), eval 0.853; af-coder-27t loads the adapter and answers.
+23:00: both A3 workers stopped on the plan's 5-hour limit (resets 00:50 Europe/Berlin). 57 attempts saved
+(runs.jsonl 50, runs-w2.jsonl 7). After 00:50: rerun work/queue15.sh and work/queue16.sh (both resume where they
+stopped), then N2-N4 as below.
 - [ ] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
