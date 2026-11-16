@@ -1,5 +1,21 @@
 # agent-forge results log
 
+## 2026-11-16 · agent-side instructions A1/A2 on benchmark C with replay · 35B coder (Qwen3.6 heretic, port 8084)
+
+The benchmark is unchanged (Malek: "we will not lower benchmarks"); only the agent's own instructions differ, the
+same for every model, recorded as settings.agent.
+
+| Agent | Understood | Approach | Correctness | Completeness | Overall | s/task |
+|---|---|---|---|---|---|---|
+| v1 (as before) | 2.85 | 2.45 | 2.20 | 1.90 | 2.35 | 101 |
+| v2: say what the request refers to first, check every item | 3.00 | 2.55 | 2.25 | 2.05 | 2.45 | 93 |
+| v3: v2 + one self-check before done | 2.25 | 2.05 | 1.75 | 1.70 | 1.90 | 145 |
+
+v2 is +0.10, within noise. v3 is worse, and the transcripts show why: "read the user's request again" made the
+35B check the session's first request instead of the message it was answering, and its final message became a
+checklist of the whole session ("Locate course content about OS03: Done") in place of the answer. 7 tasks fell to
+1-2 that way. v4 quotes the current message in the self-check and asks for the full answer as the final message.
+
 ## 2026-11-16 · Qwen3.8-27B heretic on benchmark C with replay · Q4_K_M, llama.cpp, Spark port 8087
 
 Malek switched the coder base to the dense 27B (about 9x the active parameters of the 35B-A3B). Same harness,

@@ -175,3 +175,15 @@ def test_agent_v3_gets_one_self_check_before_it_may_finish(tmp_path):
     seen.clear()
     bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v2")
     assert len(seen) == 1  # v2 has no self-check
+
+
+def test_agent_v4_self_check_quotes_the_current_request(tmp_path):
+    t = traj()
+    task = bench_c.build_tasks([t])[0]
+    seen = []
+    def chat(msgs, tools):
+        seen.append(msgs[-1]["content"])
+        return {"role": "assistant", "content": "done.", "tool_calls": [{"function": {"name": "done", "arguments": {}}}]}
+    ask = lambda p: {"understood": 3, "approach": 3, "correctness": 3, "completeness": 3, "overall": 3, "reason": "-"}
+    bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v4")
+    assert len(seen) == 2 and f'"{task["prompt"]}"' in seen[1] and "{prompt}" not in seen[1]

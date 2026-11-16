@@ -171,12 +171,20 @@ AGENT_PROMPTS = {
            "look at the files, folders and processes it names. Then do all of it. Before your final message, list "
            "each thing the user asked for, check that it is done, and do what is missing."),
 }
-AGENT_PROMPTS["v3"] = AGENT_PROMPTS["v2"]
+AGENT_PROMPTS["v3"] = AGENT_PROMPTS["v4"] = AGENT_PROMPTS["v2"]
 # v3 = v2 + one self-check when the agent first says it is done (STATUS A2)
 SELF_CHECK = {"v3": ("Before you finish: read the user's request again and your work so far. List each thing they "
                      "asked for and whether it is really done (run or read something to check where you can). If "
                      "anything is missing or wrong, do it now. When everything is done, give the final message to "
-                     "the user and call done.")}
+                     "the user and call done."),
+              # v3 made the 35B check the session's first request instead of the current one and send the checklist
+              # as its final message (1.90 vs 2.45 for v2, 16.11.2026); v4 quotes the current request and keeps the
+              # final message the answer
+              "v4": ("Before you finish, check your work against the message you are answering, and only that one "
+                     "(not earlier requests in the conversation): \"{prompt}\". Is every part of it done or answered? "
+                     "Check what you can by running or reading something. If something is missing or wrong, do it "
+                     "now. Then write your final message to the user: the full answer to that message itself, not a "
+                     "checklist or a review, and call done.")}
 
 
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
@@ -209,7 +217,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
                       + missing_tools_note(steps[: task["step"]]))
         system += AGENT_PROMPTS[agent]
         run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds,
-                                force_final=True, self_check=SELF_CHECK.get(agent), tools=harness.TOOLS + tools if tools else None, handlers=handlers)
+                                force_final=True, self_check=SELF_CHECK[agent].replace("{prompt}", _clip(prompt, 600)) if agent in SELF_CHECK else None, tools=harness.TOOLS + tools if tools else None, handlers=handlers)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
     if run.get("infra_error"):  # the model never answered: do not judge, rerun later

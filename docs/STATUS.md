@@ -182,6 +182,9 @@ O1 (operator training) waits: the Spark is busy with the 27B run (one heavy job 
 (4 h) to free the Spark. Spark back on af-coder-h (8084); queue12 (A1 v2, then A2 v3, 35B) started 17:18. The
 winner then runs on the 27B.
 17:51: A1 (agent v2, 35B) at 13/20: 2.38 vs 2.23 for v1 on the same tasks (small so far). v3 follows.
+18:55: A1 v2 2.45 (+0.10, noise). A2 v3 1.90: the self-check pulled the 35B to the session's first request and
+replaced the answer with a checklist. v4 (self-check quotes the current message, final = the answer) on the 35B
+in queue13, started 18:56.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
