@@ -175,6 +175,8 @@ same tasks, ~10-13 min per task.
 15:05: Claude ceiling (bench C replay, 20/20 after the rerun): 2.95 (2.31-3.59), offline 3.00. The target 4.0 is
 above Claude's CI: 5 tasks are bare follow-ups whose context the harness does not hand over (Claude 1 on all).
 Reported to Malek; the target or the benchmark's context window needs his call. 27B run continues.
+15:51: 27B replay at 8/20: 1.88, same as the 35B (1.88) and Claude (1.75) on those 8; ~14 min/task, done ~17:30-18:00.
+O1 (operator training) waits: the Spark is busy with the 27B run (one heavy job at a time).
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
