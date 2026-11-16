@@ -176,6 +176,19 @@ Reading:
 - Across machines it is out of the question at 2.4 Mbit/s (0.4-6 GB per handoff). Latent handoff only makes
   sense with operator and coder on the same box.
 
+## 2026-11-16 · coder LoRA v1 (STATUS T2) · Qwen3.6-35B-A3B-heretic bf16 base, Spark GB10
+
+LoRA rank 16 / alpha 32 on every linear layer of the language model except the MoE router (21.2M trainable
+parameters; the fused MoE experts are not nn.Linear and stay frozen), lr 1e-4 cosine, 8 examples per step,
+max-len 8192, one pass over 779 coder examples (5.5M tokens) from snapshot v0002 train. 98 steps in 2 h 54 min at
+~555 tok/s (flash-linear-attention kernels; 124 tok/s without). Held-out eval loss (32 examples):
+
+| step | 0 | 50 | 98 |
+|---|---|---|---|
+| eval loss | 1.064 | 0.935 | 0.928 |
+
+The loss gain is real but says nothing about the benchmark yet; T3 (queue9) measures that.
+
 ## 2026-11-16 · latent hard tasks at n=200 (STATUS D2) · Qwen3-8B, Spark GB10, bf16, seed 7, short context
 
 Same task generator as the pilot below, 50 tasks per kind. Kinds 1-3 are the ones that separate (kind 0 is

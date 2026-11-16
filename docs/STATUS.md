@@ -144,10 +144,13 @@ Mac back to the hotspot. Spark reachable through Sync (JupyterLab ok), GitHub ok
       Check train_smoke.log and adapters/coder-smoke/log.jsonl: it loads (qwen3_5_moe via AutoModelForCausalLM; if
       not, fix train_lora.py to load the text model), memory stays under ~110 GB (free -g), note tok_per_s, and the
       GGUF conversion works. Fix what fails (max-len 8192 if memory runs out).
-- [~] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
+11:53: T2 done 11:50: 98 steps, eval loss 1.0636 -> 0.935 (step 50) -> 0.928 (final), adapters/coder-v1/coder-v1.gguf.
+af-coder-t up on the Spark with coder-v1 (checked /lora-adapters), Sync tunnels 8085 + 11434 open, work/queue9.sh
+(T3) started 11:53 on the Mac (log queue9.log).
+- [x] T2. Coder training: pick --max-tokens so the run takes <= 4 h at the measured tok_per_s (cap 15M = all data),
       `setsid nohup ./train.sh coder v1 <tokens> > train_coder_v1.log 2>&1 &` (link message train-done). Check
       eval_loss falls in adapters/coder-v1/log.jsonl.
-- [ ] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
+- [~] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
       llamacpp:8085@qwen36-heretic-tuned. Compare with the untuned numbers (R, D). Record; commit.
