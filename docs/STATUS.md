@@ -196,6 +196,7 @@ reports overall.read_session_logs (tasks whose attempt touched ~/.claude/project
 22:20: 27B agent v2: 2.50 vs 2.85 v1 (1 better, 5 worse): two runs ended mid-work at 15 steps (forced final
 skips a last reply that has text), one is judge noise (5 vs 1 for the same answer). A1 closed: no gain. 27B keeps
 v1. Spark free until the A3 data is ready (~01:00).
+22:42: 27B serving with --spec-type ngram-mod (copy-heavy 12 -> 124 tok/s, fresh unchanged). af-coder-27 up.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder

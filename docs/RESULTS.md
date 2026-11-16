@@ -1,5 +1,20 @@
 # agent-forge results log
 
+## 2026-11-16 · 27B speed: n-gram speculative decoding · llama.cpp 75fd7f9, Spark GB10
+
+No small model shares the 27B's vocabulary (248k) and the Heretic has no MTP head, so a draft model is out.
+llama.cpp's n-gram speculation drafts from text already in the context, needs no memory, and keeps the output
+(same token count and text on the fresh prompt). work/spec_bench.py, 700-token cap, sampling as in the benchmark:
+
+| Server | fresh text (tok/s) | copy-heavy edit (tok/s) | draft accepted |
+|---|---|---|---|
+| plain | 12.2 | 12.1 | - |
+| --spec-type ngram-map-k | 12.1 | 18.8 | 254/254 |
+| --spec-type ngram-mod | 12.0 | **124.0** | 642/647 |
+
+ngram-mod is on for af-coder-27 and af-coder-27t from 22:40 (svc.sh). Agent turns repeat file contents and tool
+output a lot, so benchmark runs should shorten; new text stays at ~12 tok/s.
+
 ## 2026-11-16 · agent-side instructions A1/A2 on benchmark C with replay · 35B coder (Qwen3.6 heretic, port 8084)
 
 The benchmark is unchanged (Malek: "we will not lower benchmarks"); only the agent's own instructions differ, the
