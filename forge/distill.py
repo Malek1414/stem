@@ -75,7 +75,7 @@ def example(ep: dict, role: str = "coder") -> dict:
     return {"messages": msgs, "tools": ep["tools"], "loss_from": loss_from, "source": {"role": role}}
 
 
-def run(snapshot: Path, model: str, n: int, seed: int, agent: str) -> Path:
+def run(snapshot: Path, model: str, n: int, seed: int, agent: str, tag: str = "") -> Path:
     snapshot = Path(snapshot)
     out = OUT / snapshot.name / backends.label(f"claude-p:{model}")
     out.mkdir(parents=True, exist_ok=True)
@@ -86,8 +86,8 @@ def run(snapshot: Path, model: str, n: int, seed: int, agent: str) -> Path:
         tasks = bench_c.build_tasks(train_trajectories(snapshot), n=n, seed=seed)
         tasks_file.write_text(json.dumps(tasks, ensure_ascii=False) + "\n")
     trajs = {t["meta"]["file"]: t for t in train_trajectories(snapshot)}
-    runs = out / "runs.jsonl"
-    done = {json.loads(l)["id"] for l in open(runs)} if runs.exists() else set()
+    runs = out / (f"runs-{tag}.jsonl" if tag else "runs.jsonl")  # one file per worker: parallel workers never interleave
+    done = {json.loads(l)["id"] for f in out.glob("runs*.jsonl") for l in open(f)}  # skip turns any worker did
     schemas = json.loads((snapshot / "tools.json").read_text())
     chat, ask = backends.chat(f"claude-p:{model}"), claude_checker(model)
     for task in tasks:
@@ -111,10 +111,10 @@ def reads_logs(row: dict) -> bool:
 
 
 def build(snapshot: Path, model: str, min_overall: int) -> dict:
-    src = OUT / Path(snapshot).name / backends.label(f"claude-p:{model}") / "runs.jsonl"
+    src_dir = OUT / Path(snapshot).name / backends.label(f"claude-p:{model}")
     dst = Path(__file__).resolve().parent.parent / "data" / "sft" / f"{Path(snapshot).name}-distill"
     dst.mkdir(parents=True, exist_ok=True)
-    rows = [json.loads(l) for l in open(src)]
+    rows = list({r["id"]: r for f in sorted(src_dir.glob("runs*.jsonl")) for r in map(json.loads, open(f))}.values())
     # an attempt that read the session logs may have read the turn's own outcome: it teaches a lookup shortcut that
     # finds nothing on new work, so it is left out until reads are cut at the task's time (Malek decides, 16.11.)
     peeked = [r for r in rows if reads_logs(r)]
@@ -137,8 +137,9 @@ if __name__ == "__main__":
     ap.add_argument("--agent", default="v2")
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--min-overall", type=int, default=4)
+    ap.add_argument("--tag", default="", help="worker name: its own runs-<tag>.jsonl")
     a = ap.parse_args()
     if a.build:
         print(json.dumps(build(Path(a.snapshot), a.model, a.min_overall), indent=1))
     else:
-        run(Path(a.snapshot), a.model, a.n, a.seed, a.agent)
+        run(Path(a.snapshot), a.model, a.n, a.seed, a.agent, a.tag)

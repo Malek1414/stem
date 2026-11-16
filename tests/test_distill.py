@@ -29,3 +29,19 @@ def test_attempts_that_read_the_session_logs_are_not_kept():
     row = lambda cmd: {"episode": {"transcript": [{"assistant": "", "calls": [{"name": "Bash", "arguments": {"command": cmd}}]}]}}
     assert distill.reads_logs(row("grep -rl 2f80 ~/.claude/projects"))
     assert not distill.reads_logs(row("ls ~/Desktop"))
+
+
+def test_build_merges_all_worker_files_and_drops_duplicates(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(distill, "OUT", tmp_path / "distill")
+    d = tmp_path / "distill" / "v9" / "claude-p_m"
+    d.mkdir(parents=True)
+    ep = {"system": "s", "history": [], "prompt": "p", "tools": [], "transcript": [{"assistant": "ok", "calls": []}]}
+    row = lambda i, o: json.dumps({"id": i, "grade": {"overall": o}, "episode": ep}) + "\n"
+    (d / "runs.jsonl").write_text(row("a", 5) + row("b", 2))
+    (d / "runs-w2.jsonl").write_text(row("a", 5) + row("c", 4))
+    monkeypatch.chdir(tmp_path)
+    import forge.distill as fd
+    monkeypatch.setattr(fd.Path, "resolve", lambda self: tmp_path / "forge" / "distill.py" if self.name == "distill.py" else self)
+    stats = distill.build(tmp_path / "v9", "m", 4)
+    assert stats["runs"] == 3 and stats["kept"] == 2

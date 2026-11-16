@@ -223,9 +223,11 @@ Watcher steps, in order; one Spark job at a time, never poll the Spark in a loop
       examples; 2 epochs = --max-tokens 0 then resume if the data is small). Record eval loss.
 - [ ] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
       bench-c --replay-tools --model llamacpp:8088@qwen38-heretic-tuned (queue16). Compare with 2.85 (27B v1).
-- [ ] N5. Meanwhile, if queue15 finished and the Spark is busy: extend A3 to more train turns
+- [~] N5. Meanwhile, if queue15 finished and the Spark is busy: extend A3 to more train turns
       (`forge.distill --n 400 --seed 1` reuses the first 100 only if the task file matches; use a new seed and
       append) so round 2 has more data.
+      22:55: started early (only ~1/3 of attempts reach 4): queue16, worker w2, --n 400 --seed 2, runs-w2.jsonl;
+      build merges all runs*.jsonl and drops duplicate turns.
 
 ## Decision (Malek, 2026-11-16 16:00): the benchmark and the target stay
 
