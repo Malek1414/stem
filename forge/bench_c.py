@@ -161,8 +161,20 @@ def missing_tools_note(steps: list[dict]) -> str:
             + ". Do not call them; say exactly what you would do with them instead.")
 
 
+# Agent-side instructions, the same for every model (STATUS A1). The benchmark (tasks, history window, work folder,
+# judge, rubric) does not change with them; the version is recorded in the settings and the results file name.
+AGENT_PROMPTS = {
+    "v1": "",
+    "v2": (" Before you act, say in one or two sentences what this request refers to and what done looks like. A short "
+           "request (\"continue\", \"yes, do it\", \"why did you stop\") refers to the latest unfinished work in the "
+           "conversation: find it in the last messages, not in earlier topics. If the conversation does not settle it, "
+           "look at the files, folders and processes it names. Then do all of it. Before your final message, list "
+           "each thing the user asked for, check that it is done, and do what is missing."),
+}
+
+
 def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Path = bench_b.WORK,
-             max_steps: int = 15, wall_seconds: int = 600, schemas: dict | None = None) -> dict:
+             max_steps: int = 15, wall_seconds: int = 600, schemas: dict | None = None, agent: str = "v1") -> dict:
     """schemas given = replay mode: the original turn's app/web tools are available, answered from the recording."""
     root = Path(root)
     if task.get("repo") and Path(task["repo"], ".git").exists():
@@ -189,6 +201,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
                       "and no apps in this run: when a step would need them, say exactly what you would do and with "
                       "what inputs. Finish with a final message to the user, then call done."
                       + missing_tools_note(steps[: task["step"]]))
+        system += AGENT_PROMPTS[agent]
         run = harness.run_agent(chat, system, history, prompt, wd, max_steps=max_steps, wall_seconds=wall_seconds,
                                 force_final=True, tools=harness.TOOLS + tools if tools else None, handlers=handlers)
     finally:
@@ -209,7 +222,7 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
 
 
 def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = net.SYNC_OLLAMA,
-        limit: int | None = None, seed: int = 0, replay: bool = False) -> Path:
+        limit: int | None = None, seed: int = 0, replay: bool = False, agent: str = "v1") -> Path:
     snapshot = Path(snapshot)
     tasks = tasks_for(snapshot)
     tasks = tasks[:limit] if limit else tasks
@@ -219,7 +232,11 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
                 "judge": judge_model, "rubric_sha256": RUBRIC_SHA, "null_control": True}
     if replay:
         settings["replay_tools"] = True
-    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / ("bench_c_replay.json" if replay else "bench_c.json")
+    name = "bench_c_replay" if replay else "bench_c"
+    if agent != "v1":  # v1 keeps the settings and file names of every earlier run
+        settings["agent"] = agent
+        name += f"_agent-{agent}"
+    out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / f"{name}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
     done = ({r["id"]: r for r in prev.get("tasks", []) if r.get("status", "ok") != "infra_error"}
@@ -230,7 +247,7 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     rows = []
     for task in tasks:
         steps = trajs[task["file"]]["steps"]
-        row = done.get(task["id"]) or run_task(task, steps, chat, ask, schemas=schemas if replay else None)
+        row = done.get(task["id"]) or run_task(task, steps, chat, ask, schemas=schemas if replay else None, agent=agent)
         row["external_tools"] = external_tools(turn_of(steps, task))
         rows.append(row)
         _save(out, model, snapshot, settings, record, rows)

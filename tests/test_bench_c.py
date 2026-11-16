@@ -145,3 +145,17 @@ def test_context_full_still_gets_a_forced_final_answer(tmp_path):
     assert run["infra_error"] is None and run["forced_final"]
     assert run["transcript"][-1]["assistant"] == "here is what I did"
     assert calls[2] < calls[1]
+
+
+def test_agent_prompt_v2_is_added_to_the_system_prompt_and_v1_is_unchanged(tmp_path):
+    t = traj()
+    task = bench_c.build_tasks([t])[0]
+    systems = []
+    def chat(msgs, tools):
+        systems.append(msgs[0]["content"])
+        return {"role": "assistant", "content": "done.", "tool_calls": [{"function": {"name": "done", "arguments": {}}}]}
+    ask = lambda p: {"understood": 3, "approach": 3, "correctness": 3, "completeness": 3, "overall": 3, "reason": "-"}
+    bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path)
+    bench_c.run_task(task, t["steps"], chat, ask, root=tmp_path, agent="v2")
+    assert bench_c.AGENT_PROMPTS["v1"] == "" and "what this request refers to" not in systems[0]
+    assert systems[1].endswith(bench_c.AGENT_PROMPTS["v2"])

@@ -51,6 +51,8 @@ def main(argv=None) -> int:
     bc.add_argument("snapshot")
     bc.add_argument("--model", required=True)
     bc.add_argument("--judge", default=bench_c.DEFAULT_JUDGE)
+    bc.add_argument("--agent", default="v1", choices=sorted(bench_c.AGENT_PROMPTS),
+                    help="agent-side instructions (the benchmark itself is the same for every version)")
     bc.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bc.add_argument("--limit", type=int)
     bc.add_argument("--replay-tools", action="store_true", help="give the agent the original turn's app/web tools, answered from the recording")
@@ -102,7 +104,7 @@ def main(argv=None) -> int:
         print(json.dumps(sft.build(Path(a.snapshot), Path(a.out), a.max_chars), indent=1))
         return 0
     if a.cmd == "bench-c":
-        out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit, replay=a.replay_tools)
+        out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit, replay=a.replay_tools, agent=a.agent)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0
