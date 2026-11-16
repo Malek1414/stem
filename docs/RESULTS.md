@@ -192,7 +192,7 @@ The loss gain did not carry over. Benchmark C with replay: **2.15** (1.69-2.61) 
 better, 9 worse, 6 the same; offline 2.00 against 2.13. Within noise of the untuned coder, and not better. Imitating
 Claude's logged turns (with its thinking blanked out) at 8k tokens does not teach the model to read the request
 and finish it. Benchmark C without replay agrees: **1.90** (1.50-2.30) against 2.20 untuned (understood 2.35,
-completeness 1.45). Malek then decided to switch the coder base to the dense Qwen3.8-27B (12:50).
+completeness 1.45). Benchmark B: 0/72 checks, as for every model so far. Malek then decided to switch the coder base to the dense Qwen3.8-27B (12:50).
 
 ## 2026-11-16 · latent hard tasks at n=200 (STATUS D2) · Qwen3-8B, Spark GB10, bf16, seed 7, short context
 

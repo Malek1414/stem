@@ -162,7 +162,10 @@ bench-c --replay-tools --model llamacpp:8087@qwen38-heretic; Claude replay run i
 then bench B. Claude run still blocked: the `ant` login expired on 2026-11-04.
 13:51: T3 bench C (no replay): tuned coder 1.90 (1.50-2.30) vs 2.20 untuned. Training lowered both runs. Bench B
 running since 13:27 (~35 min). `ant` login still expired.
-- [~] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
+13:59: T3 done (bench B 0/72). Spark switched: af-coder-t stopped, af-coder-27 (Qwen3.8-27B Heretic Q4_K_M) up
+on 8087, 96 GB available, decode ~12 tok/s (dense, vs the MoE's ~3B active). Tunnel 8087 open; queue10
+(bench-c --replay-tools, then bench-c, on llamacpp:8087@qwen38-heretic) started 13:59.
+- [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
       llamacpp:8085@qwen36-heretic-tuned. Compare with the untuned numbers (R, D). Record; commit.
