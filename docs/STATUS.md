@@ -193,6 +193,9 @@ attempts that read the logs (3 of the first 20 did, one grepping the session fil
 run has read them so far (checked all bench_c_replay results).
 22:00: Malek: leave the log-reading attempts out of training ("more honest"); reads stay open. Bench C now
 reports overall.read_session_logs (tasks whose attempt touched ~/.claude/projects) next to every score.
+22:20: 27B agent v2: 2.50 vs 2.85 v1 (1 better, 5 worse): two runs ended mid-work at 15 steps (forced final
+skips a last reply that has text), one is judge noise (5 vs 1 for the same answer). A1 closed: no gain. 27B keeps
+v1. Spark free until the A3 data is ready (~01:00).
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder
@@ -208,7 +211,7 @@ reports overall.read_session_logs (tasks whose attempt touched ~/.claude/project
 target (>= 4.0 with --replay-tools) are fixed. Claude Opus 5.5 scores 2.95 under the same conditions, so 4.0 means
 an agent better than the source model here; the gains must come from the agent side, the same for every model and
 recorded in each result:
-- [~] A1. Find the subject first: agent prompt v2 that makes the agent state what the request refers to (from its
+- [x] A1. Find the subject first: agent prompt v2 that makes the agent state what the request refers to (from its
       history, then by searching the work folder and recent files) before acting, and check every item of the ask
       before the final message. Run on the 35B coder (cheap, local) once the Spark is free; Claude only if it helps.
       16:10: `bench-c --agent v2` added (v1 = unchanged settings and files); work/queue12.sh runs it on the 35B.

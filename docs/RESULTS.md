@@ -11,6 +11,8 @@ same for every model, recorded as settings.agent.
 | v2: say what the request refers to first, check every item | 3.00 | 2.55 | 2.25 | 2.05 | 2.45 | 93 |
 | v3: v2 + one self-check before done | 2.25 | 2.05 | 1.75 | 1.70 | 1.90 | 145 |
 | v4: v2 + a self-check quoting the current message | 3.20 | 2.45 | 2.20 | 2.10 | 2.45 (1.93-2.97) | 121 |
+| 27B v1 (for comparison) | 3.50 | 2.90 | 2.70 | 2.40 | 2.85 (2.28-3.42) | 566 |
+| 27B v2 | 3.05 | 2.65 | 2.25 | 2.00 | 2.50 (1.94-3.06) | 434 |
 
 v2 is +0.10, within noise. v3 is worse, and the transcripts show why: "read the user's request again" made the
 35B check the session's first request instead of the message it was answering, and its final message became a
@@ -18,6 +20,14 @@ checklist of the whole session ("Locate course content about OS03: Done") in pla
 1-2 that way. v4 quotes the current message in the self-check and asks for the full answer as the final message.
 v4 fixes the drop but adds nothing over v2 (4 tasks better, 4 worse; one final message is again a self-review).
 The self-check is dropped; v2 goes on to the 27B.
+
+On the 27B, v2 scores **2.50** (1.94-3.06) against 2.85 for v1 (1 task better, 5 worse; offline 2.38 vs 3.13).
+Two of the drops ran out of the 15 steps mid-work, and their last progress note ("Uploading now...") counted as the
+final message: the forced final turn only fires when the last reply has no text. That gap affects every model the
+same way and is left as it is so earlier scores stay comparable (noted for a harness v3). One drop is judge noise:
+"A + the thread through all three" got 5 (v1) and 1 (v2) for nearly the same answer ("Locked in: Approach A, a
+Driveway mode..."). Single tasks swing by up to 4 points, so differences of +-0.3 at n=20 are within noise. The 27B
+keeps v1.
 
 ## 2026-11-16 · Qwen3.8-27B heretic on benchmark C with replay · Q4_K_M, llama.cpp, Spark port 8087
 
