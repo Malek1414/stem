@@ -186,6 +186,20 @@ O1 (operator training) waits: the Spark is busy with the 27B run (one heavy job 
       af-operator-t <coder>` (port 8086, `nvsync open malekhassan 8086`), bench-d and bench-c --replay-tools with
       --model llamacpp:8086@holo4-heretic-tuned, bench-b duo with the best coder. Record; commit.
 
+## Decision (Malek, 2026-11-16 16:00): the benchmark and the target stay
+
+"we will not lower benchmarks to reach them". Benchmark C (tasks, history window, work folder, judge, rubric) and the
+target (>= 4.0 with --replay-tools) are fixed. Claude Opus 5.5 scores 2.95 under the same conditions, so 4.0 means
+an agent better than the source model here; the gains must come from the agent side, the same for every model and
+recorded in each result:
+- [ ] A1. Find the subject first: agent prompt v2 that makes the agent state what the request refers to (from its
+      history, then by searching the work folder and recent files) before acting, and check every item of the ask
+      before the final message. Run on the 35B coder (cheap, local) once the Spark is free; Claude only if it helps.
+- [ ] A2. Self-check: the agent re-reads the request and its own result and continues if something is missing
+      (no access to the judge or the reference: selecting with the benchmark's judge would be gaming it).
+- [ ] A3. Distillation: Claude trajectories through this harness on train-split tasks (with A1/A2), filtered by a
+      separate checker, as LoRA data for the best local coder. Needs Malek's OK for the API spend first.
+
 ## Target and loop (Malek, 2026-11-15 23:00: "loop until 4 is reached")
 
 Target: benchmark C with --replay-tools, overall >= 4.0 (1-5 judge scale, n=20) for the coder agent, with the
