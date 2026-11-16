@@ -209,9 +209,12 @@ v1. Spark free until the A3 data is ready (~01:00).
 ## Overnight 16-17.11 (Malek left at ~22:50: "keep running on schedule overnight")
 
 Watcher steps, in order; one Spark job at a time, never poll the Spark in a loop:
-- [~] N1. 27B training smoke test (`DATA=data/sft/v0002/coder.jsonl train.sh coder27 smoke 60000 --max-steps 2
+- [x] N1. 27B training smoke test (`DATA=data/sft/v0002/coder.jsonl train.sh coder27 smoke 60000 --max-steps 2
       --max-len 4096`, log ~/agent-forge/train_coder27_smoke.log). Pass = "train exit 0" and a gguf. If it fails:
       diagnose, fix locally with a test, push train_lora.py by base64 (work/push_train27.js pattern), rerun.
+      23:05: passed after two fixes: tool-call arguments as dicts for the Qwen3.8 template (70bbd9d), and LoRA
+      conversion without an MTP head (work/convert_lora_nomtp.py, used by train.sh for coder27 only). 2 steps at
+      ~165 tok/s (a third of the 35B's 555), eval 0.853; af-coder-27t loads the adapter and answers.
 - [ ] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
