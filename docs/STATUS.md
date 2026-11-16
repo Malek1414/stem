@@ -178,6 +178,9 @@ Reported to Malek; the target or the benchmark's context window needs his call. 
 15:51: 27B replay at 8/20: 1.88, same as the 35B (1.88) and Claude (1.75) on those 8; ~14 min/task, done ~17:30-18:00.
 O1 (operator training) waits: the Spark is busy with the 27B run (one heavy job at a time).
 16:52: 27B replay at 15/20: 2.80, vs 2.27 for the 35B and 2.73 for Claude on the same 15.
+17:20: 27B replay done: 2.85 (2.28-3.42), offline 3.13; new best (35B 2.35, Claude 2.95). No-replay 27B run stopped
+(4 h) to free the Spark. Spark back on af-coder-h (8084); queue12 (A1 v2, then A2 v3, 35B) started 17:18. The
+winner then runs on the 27B.
 - [x] T3. Evaluate the tuned coder: `svc.sh start af-operator af-coder-t` (af-coder-t = Heretic Q4 + --lora newest
       coder adapter, port 8085), `nvsync open malekhassan 8085`, then bench-c --replay-tools, bench-c, bench-b with
       --model llamacpp:8085@qwen36-heretic-tuned, and bench-b --model llamacpp:8081@holo4-heretic --coder

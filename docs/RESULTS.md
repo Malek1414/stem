@@ -1,5 +1,20 @@
 # agent-forge results log
 
+## 2026-11-16 · Qwen3.8-27B heretic on benchmark C with replay · Q4_K_M, llama.cpp, Spark port 8087
+
+Malek switched the coder base to the dense 27B (about 9x the active parameters of the 35B-A3B). Same harness,
+sampling, judge and tasks as the 35B coder's 2.35.
+
+**Overall 2.85 (2.28-3.42)**, offline subset 3.13, against 2.35 for the 35B and 2.95 for Claude. Per task against
+the 35B: 10 better, 4 worse, 6 the same (two-sided sign test p = 0.18, so likely but not yet proven at n=20).
+Against Claude: 6 better, 6 worse. It is level with the 35B on the bare follow-ups ("Continue", "continue with
+the build": 1 for every model) and ahead where the request carries its context (5s on "is the site done", "I
+submitted", the grant remarks). Understood 3.50 vs 2.85: the larger model reads the request in a long history
+better, which is what the 35B lacked.
+
+Cost: 566 s per task against 101 s (decode ~12 tok/s; every token passes all 27B weights). Fine for the coder,
+too slow for the operator. The no-replay run was stopped after its start to free the Spark for A1/A2.
+
 ## 2026-11-16 · Claude ceiling on benchmark C with replay · Claude Opus 5.5, effort high, Anthropic API
 
 The model the sessions came from, through the same harness, replayed tools, judge and 20 tasks (forge
@@ -47,6 +62,7 @@ a252aa4); with 19 tasks it was 2.26.
 | coder Qwen3.6-heretic | 20 | 0 | 2.85 | 2.45 | 2.20 | 1.90 | **2.35** (1.89-2.81) | 2.13 | 101 |
 | operator Holo4-heretic | 20 | 0 | 2.35 | 1.90 | 1.50 | 1.40 | **1.85** (1.49-2.21) | 2.00 | 40 |
 | coder Qwen3.6-heretic + LoRA v1 | 20 | 0 | 2.60 | 2.35 | 1.85 | 1.75 | **2.15** (1.69-2.61) | 2.00 | 139 |
+| coder Qwen3.8-27B-heretic (dense) | 20 | 0 | 3.50 | 2.90 | 2.70 | 2.40 | **2.85** (2.28-3.42) | 3.13 | 566 |
 | reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
