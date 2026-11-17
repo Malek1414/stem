@@ -150,7 +150,8 @@ def run_agent(chat: ChatFn, system: str, history: list[dict], prompt: str, workd
             break
         msgs.append({k: v for k, v in reply.items() if k in ("role", "content", "tool_calls")} | {"role": "assistant"})
         calls = reply.get("tool_calls") or []
-        transcript.append({"assistant": reply.get("content", ""), "calls": [c["function"] for c in calls]})
+        transcript.append({"assistant": reply.get("content", ""), "calls": [c["function"] for c in calls]}
+                          | ({"reasoning": reply["reasoning"]} if reply.get("reasoning") else {}))
         if not calls:
             if self_check and budget.ok():
                 msgs.append({"role": "user", "content": self_check})

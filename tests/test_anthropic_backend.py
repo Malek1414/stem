@@ -65,3 +65,14 @@ def test_partially_answered_calls_get_a_result_before_the_next_turn():
     results = [b for b in out[2]["content"] if b["type"] == "tool_result"]
     assert [r["tool_use_id"] for r in results] == ["toolu_h1", "toolu_h2"]
     assert results[1]["content"] == "(not run)" and out[3]["role"] == "assistant"
+
+
+def test_summarised_thinking_is_returned_as_reasoning():
+    from types import SimpleNamespace as N
+    from forge.anthropic_backend import from_response
+    blk = lambda **k: N(**k, model_dump=lambda exclude_none=True: dict(k))
+    resp = N(content=[blk(type="thinking", thinking="Look first."), blk(type="text", text="Checking."),
+                      blk(type="tool_use", id="t1", name="Bash", input={"command": "ls"})])
+    raw = {}
+    out = from_response(resp, raw)
+    assert out["reasoning"] == "Look first." and out["tool_calls"][0]["id"] == "t1" and raw["t1"][0]["type"] == "thinking"

@@ -45,3 +45,11 @@ def test_build_merges_all_worker_files_and_drops_duplicates(tmp_path, monkeypatc
     monkeypatch.setattr(fd.Path, "resolve", lambda self: tmp_path / "forge" / "distill.py" if self.name == "distill.py" else self)
     stats = distill.build(tmp_path / "v9", "m", 4)
     assert stats["runs"] == 3 and stats["kept"] == 2
+
+
+def test_claudes_summarised_thinking_becomes_reasoning_content():
+    ep = {"system": "s", "history": [], "prompt": "go", "tools": [],
+          "transcript": [{"assistant": "Checking.", "reasoning": "See where the rename stands.", "calls": [{"name": "Bash", "arguments": {}}], "results": ["ok"]},
+                         {"assistant": "Done.", "calls": []}]}
+    m = distill.example(ep)["messages"]
+    assert m[2]["reasoning_content"] == "See where the rename stands." and "reasoning_content" not in m[4]

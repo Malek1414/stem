@@ -14,6 +14,8 @@ import json
 
 EFFORT = "high"
 MAX_TOKENS = 16_000  # thinking + a tool call; the local models' 4096 cap would cut Claude off mid-thought
+THINKING = {"type": "adaptive", "display": "summarized"}  # summaries come back as text (default: omitted); for A3
+USAGE = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
 
 
 def to_tools(tools: list[dict]) -> list[dict]:
@@ -87,9 +89,12 @@ def to_messages(msgs: list[dict], raw: dict) -> tuple[str, list[dict]]:
 def from_response(resp, raw: dict) -> dict:
     blocks = [b.model_dump(exclude_none=True) for b in resp.content]
     text = "\n".join(b.text for b in resp.content if b.type == "text")
+    thinking = "\n".join(getattr(b, "thinking", "") or "" for b in resp.content if b.type == "thinking").strip()
     calls = [{"id": b.id, "function": {"name": b.name, "arguments": dict(b.input or {})}}
              for b in resp.content if b.type == "tool_use"]
     out = {"role": "assistant", "content": text}
+    if thinking:
+        out["reasoning"] = thinking
     if calls:
         out["tool_calls"] = calls
         raw[calls[0]["id"]] = blocks
@@ -106,12 +111,15 @@ def chat(model: str):
         kw = {"tools": to_tools(tools)} if tools else {}
         resp = client.beta.messages.create(
             model=model, max_tokens=MAX_TOKENS, system=system or anthropic.NOT_GIVEN, messages=msgs,
-            output_config={"effort": EFFORT}, cache_control={"type": "ephemeral"},
+            output_config={"effort": EFFORT}, thinking=THINKING, cache_control={"type": "ephemeral"},
             betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kw)
+        USAGE["calls"] += 1
+        for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
+            USAGE[k] += getattr(resp.usage, k, 0) or 0
         return from_response(resp, raw)
     return call
 
 
 def record(model: str) -> dict:
-    return {"runtime": "anthropic-api", "model": model, "effort": EFFORT, "max_tokens": MAX_TOKENS,
+    return {"runtime": "anthropic-api", "model": model, "effort": EFFORT, "max_tokens": MAX_TOKENS, "thinking": THINKING,
             "fallbacks": "default"}
