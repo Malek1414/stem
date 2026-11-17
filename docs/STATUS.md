@@ -230,13 +230,15 @@ If 16384 OOMs: rerun with --max-len 12288. queue16 resumed (plan limit reset 05:
 cut the new turns). Fixed: sparse_loss (logits only where a label follows) and fit() (drop the oldest history
 instead of the end), with tests. Restarted 06:18, same flags; the guard exits on its own when no training runs
 (start it after train.sh).
+07:05: N3 done: 18 steps on 36 examples (3 eval), eval loss 0.880 -> 0.822, adapters/coder27-v1/coder27-v1.gguf.
+af-coder-27t up on 8088 with the adapter; tunnel open; queue17 (bench C replay) started.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
-- [~] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
+- [x] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
       matches itself), `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1 0 --max-len 8192` (all
       examples; 2 epochs = --max-tokens 0 then resume if the data is small). Record eval loss.
-- [ ] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
+- [~] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
       bench-c --replay-tools --model llamacpp:8088@qwen38-heretic-tuned (queue16). Compare with 2.85 (27B v1).
 - [~] N5. Meanwhile, if queue15 finished and the Spark is busy: extend A3 to more train turns
       (`forge.distill --n 400 --seed 1` reuses the first 100 only if the task file matches; use a new seed and
