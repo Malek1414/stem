@@ -47,9 +47,33 @@ def _as_dict(a) -> dict:
     return v if isinstance(v, dict) else {"input": v}
 
 
+def fit(tok, ex: dict, max_len: int) -> dict:
+    """An example with loss_from (forge.distill) that is longer than max_len loses its oldest history messages
+    (after the system prompt) instead of its end: cutting the end would cut the new turns, which are all it
+    teaches (16k: 20 of 35 examples lost every label, 17.11.2026). The benchmark trims history the same way."""
+    lf = ex.get("loss_from")
+    if not lf:
+        return ex
+    msgs = list(ex["messages"])
+    size = lambda m: len(tok(tok.apply_chat_template(dict_args(m), tools=ex.get("tools"), tokenize=False),
+                             add_special_tokens=False)["input_ids"])
+    n = size(msgs)
+    while n > max_len and lf > 2:
+        drop = 1
+        while drop < lf - 1 and msgs[1 + drop]["role"] == "tool":  # never leave a tool result without its call
+            drop += 1
+        if lf - drop < 2:
+            break
+        msgs = msgs[:1] + msgs[1 + drop:]
+        lf -= drop
+        n = size(msgs)
+    return {**ex, "messages": msgs, "loss_from": lf}
+
+
 def encode(tok, ex: dict, max_len: int) -> dict | None:
     """Token ids and labels; labels are -100 outside assistant replies (and their closing <|im_end|>). With
     ex["loss_from"] (forge.distill), assistant replies before that message index are context only."""
+    ex = fit(tok, ex, max_len)
     text = tok.apply_chat_template(dict_args(ex["messages"]), tools=ex.get("tools"), tokenize=False)
     spans = [(m.start(1), m.end(2)) for m in ASSISTANT.finditer(text)]
     skip = sum(m["role"] == "assistant" for m in ex["messages"][: ex.get("loss_from", 0)])
@@ -66,6 +90,15 @@ def encode(tok, ex: dict, max_len: int) -> dict | None:
     if all(x == -100 for x in labels):
         return None
     return {"input_ids": ids, "labels": labels}
+
+
+def sparse_loss(model, ids: torch.Tensor, lab: torch.Tensor) -> torch.Tensor:
+    """Next-token loss with logits only where a label follows (logits_to_keep = those positions): full logits are
+    seq x 248k vocab in float32, 14 GiB at 16k tokens, which ran the 27B out of memory (17.11.2026). Same value as
+    the model's own shifted cross-entropy."""
+    keep = (lab[0, 1:] != -100).nonzero().squeeze(-1)
+    logits = model(input_ids=ids, logits_to_keep=keep).logits[0]
+    return torch.nn.functional.cross_entropy(logits.float(), lab[0, keep + 1])
 
 
 def lora_targets(model) -> list[str]:
@@ -194,7 +227,7 @@ def main(argv=None) -> dict:
     def step_loss(e) -> tuple[torch.Tensor, int]:
         ids = torch.tensor([e["input_ids"]], device=a.device)
         lab = torch.tensor([e["labels"]], device=a.device)
-        return model(input_ids=ids, labels=lab).loss, int((lab != -100).sum())
+        return sparse_loss(model, ids, lab), int((lab != -100).sum())
 
     @torch.no_grad()
     def evaluate() -> float:

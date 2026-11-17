@@ -226,6 +226,10 @@ example ~71k chars (~20k tokens: use --max-len 16384 or accept truncation at 819
 05:55: data on the Spark (hash ok, 39 lines). N3 started: `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1
 0 --max-len 16384 --accum 2 --warmup 3 --eval-frac 0.1 --save-every 5` (log train_coder27_v1.log), guard running.
 If 16384 OOMs: rerun with --max-len 12288. queue16 resumed (plan limit reset 05:50).
+06:20: N3 first try OOM at 16k (14.3 GiB float32 logits, 248k vocab) and only 15 of 35 examples kept (truncation
+cut the new turns). Fixed: sparse_loss (logits only where a label follows) and fit() (drop the oldest history
+instead of the end), with tests. Restarted 06:18, same flags; the guard exits on its own when no training runs
+(start it after train.sh).
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.

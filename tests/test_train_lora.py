@@ -100,3 +100,40 @@ def test_tool_call_arguments_become_dicts_for_the_template():
     assert out[0]["tool_calls"][0]["function"]["arguments"] == {"command": "ls"}
     assert out[0]["tool_calls"][1]["function"]["arguments"] == {"input": "not json"}
     assert isinstance(msgs[0]["tool_calls"][0]["function"]["arguments"], str)  # input untouched
+
+
+def test_sparse_loss_equals_the_models_own_loss():
+    import torch
+    from transformers import AutoConfig, AutoModelForCausalLM
+    from forge.train_lora import sparse_loss
+    cfg = AutoConfig.for_model("qwen2", vocab_size=50, hidden_size=16, intermediate_size=32, num_hidden_layers=1,
+                               num_attention_heads=2, num_key_value_heads=1)
+    torch.manual_seed(0)
+    m = AutoModelForCausalLM.from_config(cfg)
+    ids = torch.randint(0, 50, (1, 12))
+    lab = ids.clone()
+    lab[0, :5] = -100
+    lab[0, 8] = -100
+    assert torch.allclose(sparse_loss(m, ids, lab), m(input_ids=ids, labels=lab).loss, atol=1e-5)
+
+
+class _Tok:
+    """Fake tokenizer: one token per character, chat template = role:content lines."""
+    def apply_chat_template(self, msgs, tools=None, tokenize=False):
+        return "".join(f"<|im_start|>{m['role']}\\n{m.get('content') or ''}<|im_end|>\\n" for m in msgs)
+
+    def __call__(self, text, **kw):
+        return {"input_ids": list(range(len(text)))}
+
+
+def test_fit_drops_the_oldest_history_and_keeps_the_new_turns():
+    from forge.train_lora import fit
+    msgs = [{"role": "system", "content": "sys"},
+            {"role": "user", "content": "x" * 200}, {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "B", "arguments": {}}}]},
+            {"role": "tool", "content": "y" * 200}, {"role": "assistant", "content": "old"},
+            {"role": "user", "content": "now"}, {"role": "assistant", "content": "NEW"}]
+    ex = fit(_Tok(), {"messages": msgs, "loss_from": 6}, 150)
+    m = ex["messages"]
+    assert m[0]["content"] == "sys" and m[-1]["content"] == "NEW" and m[ex["loss_from"] - 1]["content"] == "now"
+    assert all(x["role"] != "tool" for x in m[1:2])  # no orphan tool result right after the system prompt
+    assert len(m) < len(msgs)
