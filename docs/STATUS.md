@@ -223,10 +223,13 @@ stopped), then N2-N4 as below.
 (overall >= 4), 6 dropped for reading the logs, mean 3.06; data/sft/v0002-distill/coder.jsonl, 2.8 MB, median
 example ~71k chars (~20k tokens: use --max-len 16384 or accept truncation at 8192). Next: copy it to the Spark
 (base64), N3 training, N4 benchmark; after 05:50 rerun queue16 for round 2.
+05:55: data on the Spark (hash ok, 39 lines). N3 started: `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1
+0 --max-len 16384 --accum 2 --warmup 3 --eval-frac 0.1 --save-every 5` (log train_coder27_v1.log), guard running.
+If 16384 OOMs: rerun with --max-len 12288. queue16 resumed (plan limit reset 05:50).
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
-- [ ] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
+- [~] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
       matches itself), `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1 0 --max-len 8192` (all
       examples; 2 epochs = --max-tokens 0 then resume if the data is small). Record eval loss.
 - [ ] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
