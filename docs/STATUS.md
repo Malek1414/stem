@@ -248,6 +248,9 @@ benchmark). Restarted 10:12 with 115 GB free. Lesson: before training, wait for 
 benchmarks v2 (af-coder-27t serves the newest adapters/coder27-*).
 10:55: API worker had stopped at 09:51 (49 attempts, $26): a server-side fallback block was replayed without its
 `from` field (SDK name from_), 400. Fixed (dump by alias, test with the SDK type); queue18 resumed.
+12:20: LoRA v2 done: 31 steps on 61 examples (6 eval), eval 0.806 -> 0.735. af-coder-27t serves coder27-v2;
+queue19 benchmarks it as llamacpp:8088@qwen38-heretic-tuned-v2 (own label: the v1 results would otherwise be
+resumed under the shared name). API worker: 78 attempts, 31 >= 4, ~$37 in total.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
