@@ -87,7 +87,7 @@ def to_messages(msgs: list[dict], raw: dict) -> tuple[str, list[dict]]:
 
 
 def from_response(resp, raw: dict) -> dict:
-    blocks = [b.model_dump(exclude_none=True) for b in resp.content]
+    blocks = [b.model_dump(exclude_none=True, by_alias=True) for b in resp.content]  # by alias: fallback.from (SDK from_)
     text = "\n".join(b.text for b in resp.content if b.type == "text")
     thinking = "\n".join(getattr(b, "thinking", "") or "" for b in resp.content if b.type == "thinking").strip()
     calls = [{"id": b.id, "function": {"name": b.name, "arguments": dict(b.input or {})}}

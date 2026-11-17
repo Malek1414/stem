@@ -246,6 +246,8 @@ in read_session_logs). API worker: 22 attempts, 8 >= 4, $13.17 so far.
 benchmark). Restarted 10:12 with 115 GB free. Lesson: before training, wait for the judge to unload or check
 `free -g` shows > 100 GB available. The 27B template renders reasoning_content as <think> text (checked). queue19
 benchmarks v2 (af-coder-27t serves the newest adapters/coder27-*).
+10:55: API worker had stopped at 09:51 (49 attempts, $26): a server-side fallback block was replayed without its
+`from` field (SDK name from_), 400. Fixed (dump by alias, test with the SDK type); queue18 resumed.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.

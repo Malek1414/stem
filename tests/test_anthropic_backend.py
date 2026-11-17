@@ -70,9 +70,22 @@ def test_partially_answered_calls_get_a_result_before_the_next_turn():
 def test_summarised_thinking_is_returned_as_reasoning():
     from types import SimpleNamespace as N
     from forge.anthropic_backend import from_response
-    blk = lambda **k: N(**k, model_dump=lambda exclude_none=True: dict(k))
+    blk = lambda **k: N(**k, model_dump=lambda **kw: dict(k))
     resp = N(content=[blk(type="thinking", thinking="Look first."), blk(type="text", text="Checking."),
                       blk(type="tool_use", id="t1", name="Bash", input={"command": "ls"})])
     raw = {}
     out = from_response(resp, raw)
     assert out["reasoning"] == "Look first." and out["tool_calls"][0]["id"] == "t1" and raw["t1"][0]["type"] == "thinking"
+
+
+def test_fallback_blocks_are_replayed_with_their_from_field():
+    # a server-side fallback block dumped without aliases lost "from" and the next request was a 400 (17.11.2026)
+    from types import SimpleNamespace as N
+    from anthropic.types.beta import BetaFallbackBlock
+    from forge.anthropic_backend import from_response
+    fb = BetaFallbackBlock.model_validate({"type": "fallback", "from": {"model": "claude-opus-5-5"},
+                                           "to": {"model": "claude-opus-5"}, "trigger": {"type": "refusal"}})
+    use = N(type="tool_use", id="t1", name="Bash", input={}, model_dump=lambda **k: {"type": "tool_use", "id": "t1", "name": "Bash", "input": {}})
+    raw = {}
+    from_response(N(content=[fb, use]), raw)
+    assert raw["t1"][0]["from"] == {"model": "claude-opus-5-5"} and "from_" not in raw["t1"][0]
