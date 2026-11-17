@@ -23,6 +23,7 @@ from pathlib import Path
 import torch
 
 ASSISTANT = re.compile(r"<\|im_start\|>assistant\n(.*?)(<\|im_end\|>)", re.S)
+EMPTY_THINK = re.compile(r"<think>\s*</think>\s*")  # what the template writes for a turn without reasoning
 
 
 def dict_args(msgs: list[dict]) -> list[dict]:
@@ -80,13 +81,19 @@ def encode(tok, ex: dict, max_len: int) -> dict | None:
     spans = spans[skip:]
     if not spans:
         return None
+    # an empty think block is never a target: training on it taught both LoRA v1s to skip thinking and end turns
+    # early (27B v1: 2.30 vs 2.85, 17.11.2026); turns with Claude's summarised thinking keep theirs
+    empty = [(m.start(), m.end()) for m in EMPTY_THINK.finditer(text)]
     enc = tok(text, add_special_tokens=False, return_offsets_mapping=True, truncation=True, max_length=max_len)
-    ids, labels, j = enc["input_ids"], [], 0
+    ids, labels, j, k = enc["input_ids"], [], 0, 0
     for tid, (a, b) in zip(ids, enc["offset_mapping"]):
         while j < len(spans) and spans[j][1] <= a:
             j += 1
+        while k < len(empty) and empty[k][1] <= a:
+            k += 1
         inside = j < len(spans) and spans[j][0] <= a < spans[j][1]
-        labels.append(tid if inside else -100)
+        in_empty = k < len(empty) and empty[k][0] <= a < empty[k][1]
+        labels.append(tid if inside and not in_empty else -100)
     if all(x == -100 for x in labels):
         return None
     return {"input_ids": ids, "labels": labels}

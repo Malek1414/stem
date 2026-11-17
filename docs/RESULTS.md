@@ -1,5 +1,17 @@
 # agent-forge results log
 
+## 2026-11-17 · 27B + LoRA v1 from Claude's in-harness attempts (A3) · benchmark C with replay
+
+36 training examples (39 attempts the checker scored >= 4 on train-split turns, claude -p, no thinking), 18 steps,
+max-len 16384 with the oldest history trimmed and logits only where labels follow; eval loss 0.880 -> 0.822.
+
+**Overall 2.30 (1.75-2.85)** against 2.85 for the untuned 27B: 2 tasks better, 11 worse. The transcripts show the
+same failure as the 35B's LoRA v1: turns end mid-work with a text reply that announces the next step ("I'll go back
+to the Financial Planning page and grab the PDF's download link directly.") and no call. The claude -p data has no
+thinking, so the chat template put an empty <think></think> before every trained reply, and the model learned to
+skip planning. Fix for v2: empty think blocks are no longer training targets, and the API attempts carry Claude's
+summarised thinking as reasoning_content. One attempt read ~/.claude/projects (read_session_logs = 1).
+
 ## 2026-11-16 · 27B speed: n-gram speculative decoding · llama.cpp 75fd7f9, Spark GB10
 
 No small model shares the 27B's vocabulary (248k) and the Heretic has no MTP head, so a draft model is out.
@@ -107,6 +119,7 @@ a252aa4); with 19 tasks it was 2.26.
 | operator Holo4-heretic | 20 | 0 | 2.35 | 1.90 | 1.50 | 1.40 | **1.85** (1.49-2.21) | 2.00 | 40 |
 | coder Qwen3.6-heretic + LoRA v1 | 20 | 0 | 2.60 | 2.35 | 1.85 | 1.75 | **2.15** (1.69-2.61) | 2.00 | 139 |
 | coder Qwen3.8-27B-heretic (dense) | 20 | 0 | 3.50 | 2.90 | 2.70 | 2.40 | **2.85** (2.28-3.42) | 3.13 | 566 |
+| coder Qwen3.8-27B + LoRA v1 (36 claude -p attempts) | 20 | 0 | 2.80 | 2.80 | 2.35 | 1.90 | **2.30** (1.75-2.85) | 2.38 | 438 |
 | reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k

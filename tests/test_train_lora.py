@@ -137,3 +137,30 @@ def test_fit_drops_the_oldest_history_and_keeps_the_new_turns():
     assert m[0]["content"] == "sys" and m[-1]["content"] == "NEW" and m[ex["loss_from"] - 1]["content"] == "now"
     assert all(x["role"] != "tool" for x in m[1:2])  # no orphan tool result right after the system prompt
     assert len(m) < len(msgs)
+
+
+class _ThinkTok(_Tok):
+    """Fake Qwen-like template: assistant turns get <think>reasoning</think> (empty when there is none)."""
+    def apply_chat_template(self, msgs, tools=None, tokenize=False):
+        out = ""
+        for m in msgs:
+            body = m.get("content") or ""
+            if m["role"] == "assistant":
+                body = f"<think>\n{m.get('reasoning_content', '')}\n</think>\n\n" + body
+            out += f"<|im_start|>{m['role']}\n{body}<|im_end|>\n"
+        return out
+
+    def __call__(self, text, return_offsets_mapping=False, **kw):
+        ids = [ord(c) for c in text][: kw.get("max_length", 10**9)]
+        return {"input_ids": ids, "offset_mapping": [(i, i + 1) for i in range(len(ids))]}
+
+
+def test_empty_think_blocks_are_not_trained_but_real_reasoning_is():
+    from forge.train_lora import encode
+    tok = _ThinkTok()
+    msgs = [{"role": "user", "content": "a"}, {"role": "assistant", "content": "ANSWER1"},
+            {"role": "user", "content": "b"}, {"role": "assistant", "content": "ANSWER2", "reasoning_content": "PLAN"}]
+    e = encode(tok, {"messages": msgs}, 10_000)
+    learned = "".join(chr(i) for i, l in zip(e["input_ids"], e["labels"]) if l != -100)
+    assert "ANSWER1" in learned and "ANSWER2" in learned and "PLAN" in learned
+    assert learned.count("<think>") == 1  # only the block with reasoning

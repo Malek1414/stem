@@ -240,13 +240,15 @@ mid-work with a text-only reply that announces the next step (3 tasks), likely b
 thinking, so the template trains empty <think> blocks (as with the 35B LoRA v1). The API data carries thinking
 summaries (reasoning_content): LoRA v2 on it is the next test. One tuned attempt read ~/.claude/projects (counted
 in read_session_logs). API worker: 22 attempts, 8 >= 4, $13.17 so far.
+10:00: N4 done: 27B + LoRA v1 2.30 (1.75-2.85) vs 2.85, worse. Empty think blocks now excluded from the loss
+(test). Rebuilt data: 182 attempts, 67 kept (19 with thinking), 7 dropped for log reads. Next: LoRA v2 on it.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
 - [x] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
       matches itself), `DATA=data/sft/v0002-distill/coder.jsonl train.sh coder27 v1 0 --max-len 8192` (all
       examples; 2 epochs = --max-tokens 0 then resume if the data is small). Record eval loss.
-- [~] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
+- [x] N4. `svc.sh start af-coder-27t` (port 8088, ngram-mod on), `nvsync open malekhassan 8088`, then
       bench-c --replay-tools --model llamacpp:8088@qwen38-heretic-tuned (queue16). Compare with 2.85 (27B v1).
 - [~] N5. Meanwhile, if queue15 finished and the Spark is busy: extend A3 to more train turns
       (`forge.distill --n 400 --seed 1` reuses the first 100 only if the task file matches; use a new seed and
