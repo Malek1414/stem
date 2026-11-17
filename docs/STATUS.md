@@ -219,7 +219,11 @@ Watcher steps, in order; one Spark job at a time, never poll the Spark in a loop
 (runs.jsonl 50, runs-w2.jsonl 7). After 00:50: rerun work/queue15.sh and work/queue16.sh (both resume where they
 stopped), then N2-N4 as below.
 00:52: plan limit reset; queue15 and queue16 resumed (logs appended).
-- [ ] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
+02:45: both A3 workers stopped again on the plan limit (resets 05:50). distill --build: 106 attempts, 39 kept
+(overall >= 4), 6 dropped for reading the logs, mean 3.06; data/sft/v0002-distill/coder.jsonl, 2.8 MB, median
+example ~71k chars (~20k tokens: use --max-len 16384 or accept truncation at 8192). Next: copy it to the Spark
+(base64), N3 training, N4 benchmark; after 05:50 rerun queue16 for round 2.
+- [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
 - [ ] N3. Train the 27B LoRA: servers off, train_guard.sh running (start it detached with setsid; `pgrep -f`
