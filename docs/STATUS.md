@@ -232,6 +232,9 @@ instead of the end), with tests. Restarted 06:18, same flags; the guard exits on
 (start it after train.sh).
 07:05: N3 done: 18 steps on 36 examples (3 eval), eval loss 0.880 -> 0.822, adapters/coder27-v1/coder27-v1.gguf.
 af-coder-27t up on 8088 with the adapter; tunnel open; queue17 (bench C replay) started.
+08:20: A3 via the API (queue18, worker api1) running: first 6 attempts 2 >= 4, thinking summaries on ~85% of
+steps. Cost (Opus 5.5 $4/$20 per MTok, cache read $0.20, 5-min write $5): $2.59 for 6 = ~$0.43 per attempt,
+~$1.30 per kept example; the rest of the 400 (~290 turns) ~ $125.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
