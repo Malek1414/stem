@@ -235,6 +235,11 @@ af-coder-27t up on 8088 with the adapter; tunnel open; queue17 (bench C replay) 
 08:20: A3 via the API (queue18, worker api1) running: first 6 attempts 2 >= 4, thinking summaries on ~85% of
 steps. Cost (Opus 5.5 $4/$20 per MTok, cache read $0.20, 5-min write $5): $2.59 for 6 = ~$0.43 per attempt,
 ~$1.30 per kept example; the rest of the 400 (~290 turns) ~ $125.
+08:55: tuned 27B (LoRA v1, 36 claude -p examples) at 8/20: 1.38 vs 1.88 base on the same tasks. Pattern: it ends
+mid-work with a text-only reply that announces the next step (3 tasks), likely because the claude -p data has no
+thinking, so the template trains empty <think> blocks (as with the 35B LoRA v1). The API data carries thinking
+summaries (reasoning_content): LoRA v2 on it is the next test. One tuned attempt read ~/.claude/projects (counted
+in read_session_logs). API worker: 22 attempts, 8 >= 4, $13.17 so far.
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
