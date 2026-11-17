@@ -242,6 +242,10 @@ summaries (reasoning_content): LoRA v2 on it is the next test. One tuned attempt
 in read_session_logs). API worker: 22 attempts, 8 >= 4, $13.17 so far.
 10:00: N4 done: 27B + LoRA v1 2.30 (1.75-2.85) vs 2.85, worse. Empty think blocks now excluded from the loss
 (test). Rebuilt data: 182 attempts, 67 kept (19 with thinking), 7 dropped for log reads. Next: LoRA v2 on it.
+10:15: LoRA v2 first start was stopped by the guard (4 GB available: the judge model was still loaded after the
+benchmark). Restarted 10:12 with 115 GB free. Lesson: before training, wait for the judge to unload or check
+`free -g` shows > 100 GB available. The 27B template renders reasoning_content as <think> text (checked). queue19
+benchmarks v2 (af-coder-27t serves the newest adapters/coder27-*).
 - [x] N2. When queue15 (A3, 100 train turns) is done: `.venv/bin/python -m forge.distill data/snapshots/v0002 --build`
       (overall >= 4, log-reading attempts dropped), copy data/sft/v0002-distill/coder.jsonl to the Spark (base64,
       same folder), record stats in RESULTS.
