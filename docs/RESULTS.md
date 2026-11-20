@@ -1,5 +1,14 @@
 # agent-forge results log
 
+## 2026-11-20 · 27B + LoRA v2 (67 checked Claude attempts, 19 with thinking) · benchmark C with replay
+
+**Overall 2.45 (1.99-2.91)** against 2.85 for the untuned 27B (1 task better, 6 worse) and 2.30 for v1 (8 better,
+5 worse); offline subset 2.38 vs 3.13 untuned. v2 is +0.15 over v1, within noise, and still below the base: LoRA
+training on this data has not beaten the untuned 27B yet. Understood drops most (3.50 -> 2.75). One attempt (#1226,
+Chrome tab grouping) searched ~/.claude memory/session logs instead of doing the task (read_session_logs = 1, graded
+1). Run: 18 rows on 20.11 14:28-17:15, the 2 rows hit by the coder outage that afternoon (#1226 connection reset,
+#1053 timeout) rerun 17:30-17:45 with the coder healthy; no infra errors left. 404 s/task.
+
 ## 2026-11-17 · 27B + LoRA v1 from Claude's in-harness attempts (A3) · benchmark C with replay
 
 36 training examples (39 attempts the checker scored >= 4 on train-split turns, claude -p, no thinking), 18 steps,
@@ -120,6 +129,7 @@ a252aa4); with 19 tasks it was 2.26.
 | coder Qwen3.6-heretic + LoRA v1 | 20 | 0 | 2.60 | 2.35 | 1.85 | 1.75 | **2.15** (1.69-2.61) | 2.00 | 139 |
 | coder Qwen3.8-27B-heretic (dense) | 20 | 0 | 3.50 | 2.90 | 2.70 | 2.40 | **2.85** (2.28-3.42) | 3.13 | 566 |
 | coder Qwen3.8-27B + LoRA v1 (36 claude -p attempts) | 20 | 0 | 2.80 | 2.80 | 2.35 | 1.90 | **2.30** (1.75-2.85) | 2.38 | 438 |
+| coder Qwen3.8-27B + LoRA v2 (67 attempts, 19 with thinking) | 20 | 0 | 2.75 | 2.35 | 1.95 | 1.95 | **2.45** (1.99-2.91) | 2.38 | 404 |
 | reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k

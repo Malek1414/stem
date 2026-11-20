@@ -335,6 +335,7 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       17:15 queue20 done: 18 graded, 2 infra (#1226 ConnectionReset, #1053 timeout 1381 s, both in the outage).
       Provisional 18/20: overall 2.556 (2.07-3.04), understood 2.89, approach 2.44, correctness 2.06, completeness
       2.06, 401 s/task, read_session_logs 0. 17:30 work/queue21.sh reruns the 2 rows (log queue21.log); W2 after it.
-- [ ] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
+      17:45 complete 20/20, 0 infra: overall 2.45 (1.99-2.91), offline 2.38; recorded in RESULTS.md.
+- [x] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
 - [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
