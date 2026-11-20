@@ -164,3 +164,28 @@ def test_empty_think_blocks_are_not_trained_but_real_reasoning_is():
     learned = "".join(chr(i) for i, l in zip(e["input_ids"], e["labels"]) if l != -100)
     assert "ANSWER1" in learned and "ANSWER2" in learned and "PLAN" in learned
     assert learned.count("<think>") == 1  # only the block with reasoning
+
+
+def test_epoch_order_repeats_and_reshuffles():
+    xs = list(range(10))
+    assert train_lora.epoch_order(xs, 1, 0) == xs
+    two = train_lora.epoch_order(xs, 2, 0)
+    assert two[:10] == xs and sorted(two[10:]) == xs and two[10:] != xs
+    assert two == train_lora.epoch_order(xs, 2, 0)  # deterministic, so a resume continues the same order
+
+
+def test_two_epochs_double_the_steps(tmp_path):
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    tok = transformers.AutoTokenizer.from_pretrained(TOK)
+    cfg = transformers.Qwen3Config(vocab_size=len(tok), hidden_size=64, intermediate_size=128, num_hidden_layers=2,
+                                   num_attention_heads=4, num_key_value_heads=2, head_dim=16, max_position_embeddings=1024)
+    mdir = tmp_path / "m"
+    transformers.AutoModelForCausalLM.from_config(cfg).save_pretrained(mdir)
+    tok.save_pretrained(mdir)
+    data = tmp_path / "d.jsonl"
+    data.write_text("".join(json.dumps(EX) + "\n" for _ in range(8)))
+    res = train_lora.main(["--model", str(mdir), "--data", str(data), "--out", str(tmp_path / "out"), "--max-len", "512",
+                           "--accum", "2", "--save-every", "100", "--device", "cpu", "--warmup", "1", "--epochs", "2"])
+    assert res["steps"] == 7  # one epoch of the same 7 examples is 4 steps (see above)
+    run = json.loads((tmp_path / "out" / "run.json").read_text())
+    assert run["examples"] == 7 and run["example_passes"] == 14 and run["total_steps"] == 7

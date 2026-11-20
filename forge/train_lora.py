@@ -160,6 +160,17 @@ def lr_at(step: int, total: int, base: float, warmup: int) -> float:
     return base * 0.5 * (1 + math.cos(math.pi * min(1.0, p)))
 
 
+def epoch_order(train: list, epochs: int, seed: int) -> list:
+    """The training sequence for `epochs` passes: pass 1 in the given order, each later pass reshuffled (seeded),
+    so a resumed run (state["seen"] indexes this list) continues in the same order."""
+    order = list(train)
+    for ep in range(1, max(1, epochs)):
+        nxt = list(train)
+        random.Random(seed + ep).shuffle(nxt)
+        order += nxt
+    return order
+
+
 def main(argv=None) -> dict:
     ap = argparse.ArgumentParser(prog="forge.train_lora")
     ap.add_argument("--model", required=True)
@@ -167,6 +178,7 @@ def main(argv=None) -> dict:
     ap.add_argument("--out", required=True)
     ap.add_argument("--max-len", type=int, default=16384)
     ap.add_argument("--max-tokens", type=int, default=0, help="token budget (0 = all examples), one epoch")
+    ap.add_argument("--epochs", type=int, default=1, help="passes over the selected examples, reshuffled each pass")
     ap.add_argument("--rank", type=int, default=16)
     ap.add_argument("--alpha", type=int, default=32)
     ap.add_argument("--lr", type=float, default=1e-4)
@@ -202,6 +214,8 @@ def main(argv=None) -> dict:
         if a.max_tokens and used >= a.max_tokens:
             break
     evals = [e for e in (encode(tok, ex, a.max_len) for ex in eval_raw) if e]
+    n_unique = len(train)
+    train = epoch_order(train, a.epochs, a.seed)
     total_steps = math.ceil(len(train) / a.accum)
     if a.max_steps:
         total_steps = min(total_steps, a.max_steps)
@@ -226,7 +240,7 @@ def main(argv=None) -> dict:
     if (out / "optimizer.pt").exists():
         opt.load_state_dict(torch.load(out / "optimizer.pt", map_location=a.device, weights_only=True))
 
-    run = {"model": a.model, "data": a.data, "examples": len(train), "eval_examples": len(evals), "train_tokens": used,
+    run = {"model": a.model, "data": a.data, "examples": n_unique, "example_passes": len(train), "eval_examples": len(evals), "train_tokens": used,
            "total_steps": total_steps, "trainable_params": sum(p.numel() for p in params), **vars(a)}
     (out / "run.json").write_text(json.dumps(run, indent=1) + "\n")
     log = open(out / "log.jsonl", "a")

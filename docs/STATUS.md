@@ -336,6 +336,13 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       Provisional 18/20: overall 2.556 (2.07-3.04), understood 2.89, approach 2.44, correctness 2.06, completeness
       2.06, 401 s/task, read_session_logs 0. 17:30 work/queue21.sh reruns the 2 rows (log queue21.log); W2 after it.
       17:45 complete 20/20, 0 infra: overall 2.45 (1.99-2.91), offline 2.38; recorded in RESULTS.md.
+- [ ] L1. Loop iteration 1 of 3 ("Target and loop", change (2): a second epoch; same data, flags and seed as v2).
+      Resume could not do it (state["seen"] is at the end after one pass), so train_lora got --epochs (each later pass
+      reshuffled, seeded; tests). 18:31 `train.sh coder27 v3 0 ... --epochs 2` (log train_coder27_v3.log, guard on,
+      116 GB free). after_train_v3.sh (Spark) serves coder27-v3 on af-coder-27t and sends "v3-ready"; work/queue22.sh
+      (Mac, log queue22.log) then runs bench C replay as qwen38-heretic-tuned-v3. Compare with v2 2.45 and base 2.85.
+      Change (1) "2x token budget" does not apply: v2 already used all examples (--max-tokens 0).
+      No paid API runs (Malek's free-only rule, 20.11): no more A3 data via the API worker (queue18).
 - [x] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
 - [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
