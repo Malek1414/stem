@@ -328,6 +328,10 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       queue19 (only the infra rows). Nothing to do while both wait. If either died, restart it.
       Done 20.11 14:28: memory freed after the Slack ask in #dgx-spark-synchronization (owner Justice Samuel ended the NIM
       runs); wait_mem saw 92 GB, af-coder-27t up (health ok), queue19 rerun started 14:28:30 (bench C replay, 27B + LoRA v2).
+      15:30: af-coder-27t had been stopped from outside (clean "cleaning up before exit", no OOM; the admin NIM/vLLM was
+      gone too, so likely the Spark cleanup stopped every process). Restarted with `svc.sh start af-coder-27t` (health ok,
+      adapter coder27-v2 loaded, 92 GB available); bench C reconnected on its own. Rows that ran while it was down may be
+      infra errors again: check the per-row errors before recording W2.
 - [ ] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
 - [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
