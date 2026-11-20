@@ -306,3 +306,28 @@ best servers, delete the watcher cron job. E and F below are optional comparison
       Record; commit.
 - [ ] G. Then `svc.sh start af-operator <best coder>` and leave a short summary at the top of docs/RESULTS.md for Malek
       (what is best per role, by how much, what failed). Delete the watcher cron job.
+
+## 2026-11-18 22:55 · recovery after the Sync outage
+Cause: the Mac was on Uni Wi-Fi with the WireGuard "Staff-VPN" off, so the Spark (192.168.18.199) was unreachable and
+queue19 (27B + LoRA v2, bench C replay) ended with 20/20 infra errors on 17.11. Fix: `scutil --nc start "Staff-VPN-Malek-Hassan"`,
+`nvsync connect malekhassan --detach`, JupyterLab started via the Dashboard API (POST /api/v1/jupyterlab).
+Spark: `svc.sh start link af-coder-27` (port 8087, tunnel open, test prompt ok); Mac -> spark A2A message delivered.
+Blocked: the Spark admin's NIM/vLLM holds 59 GB GPU, ~30 GB available. The judge gpt-oss:120b (65 GB) does not fit, so the
+queue19 rerun waits; the operator also stays off. Rerun: `svc.sh stop af-coder-27; svc.sh start af-coder-27t`,
+`nvsync open malekhassan 8088`, `nohup caffeinate -i work/queue19.sh >> work/queue19.log 2>&1 &` (reruns infra rows).
+Watchdog launch agent fails with "Operation not permitted" (TCC blocks /bin/bash from ~/Desktop).
+Site: docs/site/index.html, published at https://claude.ai/artifact/CkfN6thCRh81CgrLhpA7iz
+
+## Night 18-19.11 (Malek: "after the [memory] is free keep going")
+Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admin's NIM/vLLM, is not ours: never stop it):
+- [ ] W0. Network: if `nvsync status malekhassan` is not RUNNING, check `scutil --nc status "Staff-VPN-Malek-Hassan"`; if
+      disconnected, `scutil --nc start "Staff-VPN-Malek-Hassan"`, then `nvsync connect malekhassan --detach` (one try per hour).
+      If JupyterLab is stopped, start it from the DGX Dashboard tab (POST /api/v1/jupyterlab with the stored bearer token).
+- [x] W1. Waiting: ~/agent-forge/wait_mem.sh (Spark, log wait_mem.log) waits for >= 75 GB available, swaps af-coder-27 ->
+      af-coder-27t (coder27-v2) and sends "mem-free" over the link; work/queue20.sh (Mac, log queue20.log) then reruns
+      queue19 (only the infra rows). Nothing to do while both wait. If either died, restart it.
+      Done 20.11 14:28: memory freed after the Slack ask in #dgx-spark-synchronization (owner Justice Samuel ended the NIM
+      runs); wait_mem saw 92 GB, af-coder-27t up (health ok), queue19 rerun started 14:28:30 (bench C replay, 27B + LoRA v2).
+- [ ] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
+      (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
+- [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
