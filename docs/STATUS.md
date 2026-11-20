@@ -336,13 +336,21 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       Provisional 18/20: overall 2.556 (2.07-3.04), understood 2.89, approach 2.44, correctness 2.06, completeness
       2.06, 401 s/task, read_session_logs 0. 17:30 work/queue21.sh reruns the 2 rows (log queue21.log); W2 after it.
       17:45 complete 20/20, 0 infra: overall 2.45 (1.99-2.91), offline 2.38; recorded in RESULTS.md.
-- [ ] L1. Loop iteration 1 of 3 ("Target and loop", change (2): a second epoch; same data, flags and seed as v2).
+- [x] L1. Loop iteration 1 of 3 ("Target and loop", change (2): a second epoch; same data, flags and seed as v2).
       Resume could not do it (state["seen"] is at the end after one pass), so train_lora got --epochs (each later pass
       reshuffled, seeded; tests). 18:31 `train.sh coder27 v3 0 ... --epochs 2` (log train_coder27_v3.log, guard on,
       116 GB free). after_train_v3.sh (Spark) serves coder27-v3 on af-coder-27t and sends "v3-ready"; work/queue22.sh
       (Mac, log queue22.log) then runs bench C replay as qwen38-heretic-tuned-v3. Compare with v2 2.45 and base 2.85.
       Change (1) "2x token budget" does not apply: v2 already used all examples (--max-tokens 0).
       No paid API runs (Malek's free-only rule, 20.11): no more A3 data via the API worker (queue18).
+      21.11 00:19 done 20/20, 0 infra: overall 2.90 (2.27-3.53), offline 3.00; +0.45 over v2, level with base 2.85.
+      Recorded in RESULTS.md. Stop rule not hit (gain >= 0.1), target 4.0 not reached -> L2.
+- [ ] L2. Loop iteration 2 of 3 (change (3): rank 32; alpha 64 to keep alpha/rank = 2; otherwise as v3, 2 epochs).
+      21.11 00:31 `train.sh coder27 v4 0 ... --epochs 2 --rank 32 --alpha 64` (log train_coder27_v4.log, guard on,
+      judge unloaded and af-coder-27t stopped first, 116 GB free). after_train_v4.sh serves coder27-v4 on
+      af-coder-27t and sends "v4-ready"; work/queue23.sh (log queue23.log) runs bench C replay as
+      qwen38-heretic-tuned-v4. Compare with v3 2.90. After it: iteration 3 is the last; with no change (1) left,
+      the loop ends after L2 unless Malek names another change -> write the summary at the top of RESULTS.md.
 - [x] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
 - [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.

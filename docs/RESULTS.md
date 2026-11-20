@@ -1,5 +1,14 @@
 # agent-forge results log
 
+## 2026-11-21 · 27B + LoRA v3 (v2's data, 2 epochs) · benchmark C with replay
+
+Loop iteration 1 of 3 (change: a second epoch, everything else as v2). **Overall 2.90 (2.27-3.53)** against 2.85 for
+the untuned 27B (4 tasks better, 5 worse) and 2.45 for v2 (7 better, 3 worse); offline subset 3.00 (2.02-3.98) vs
+3.13 untuned and 2.38 for v2. +0.45 over v2, the first LoRA that matches the base, but the CIs overlap almost
+completely, so "as good as untuned", not better. Biggest gains over v2 are on tasks v2 dropped (#529 2->5, #125 2->5,
+#2 2->4, #50 3->4). Training: 61 steps, eval loss flat (~0.725) over the second epoch while train loss kept falling.
+20/20 graded, 0 infra errors, read_session_logs 0, no truncated generations in the server log; 442 s/task.
+
 ## 2026-11-20 · 27B + LoRA v2 (67 checked Claude attempts, 19 with thinking) · benchmark C with replay
 
 **Overall 2.45 (1.99-2.91)** against 2.85 for the untuned 27B (1 task better, 6 worse) and 2.30 for v1 (8 better,
@@ -130,6 +139,7 @@ a252aa4); with 19 tasks it was 2.26.
 | coder Qwen3.8-27B-heretic (dense) | 20 | 0 | 3.50 | 2.90 | 2.70 | 2.40 | **2.85** (2.28-3.42) | 3.13 | 566 |
 | coder Qwen3.8-27B + LoRA v1 (36 claude -p attempts) | 20 | 0 | 2.80 | 2.80 | 2.35 | 1.90 | **2.30** (1.75-2.85) | 2.38 | 438 |
 | coder Qwen3.8-27B + LoRA v2 (67 attempts, 19 with thinking) | 20 | 0 | 2.75 | 2.35 | 1.95 | 1.95 | **2.45** (1.99-2.91) | 2.38 | 404 |
+| coder Qwen3.8-27B + LoRA v3 (v2 data, 2 epochs) | 20 | 0 | 3.35 | 3.00 | 2.50 | 2.40 | **2.90** (2.27-3.53) | 3.00 | 442 |
 | reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
