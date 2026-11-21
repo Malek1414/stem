@@ -365,3 +365,6 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       12:51 work/queue24.sh (worker api2, log queue24.log) on the 150 untried turns of tasks_n400_seed2 (~$65 at
       17.11's $0.43/attempt). Then `forge.distill --build`, retrain v5 with v3's settings (2 epochs, rank 16) on
       the larger data, bench C replay, compare with v3 2.90. The free-only rule still holds for everything else.
+      15:02: the org credits ran out (API 400 "credit balance is too low") after 55 attempts, $26.00 by our count,
+      16 kept (grade >= 4). `--build` 15:05: 108 kept examples (was 67), 25 dropped for reading session logs.
+      Next: copy coder.jsonl to the Spark and train v5.
