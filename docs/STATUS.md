@@ -1,4 +1,4 @@
-# agent-forge status (read by the hourly watcher)
+# stem status (read by the hourly watcher)
 
 Updated: 2026-11-15. The watcher does the first unchecked item that does not need Malek's approval,
 ticks it here, commits, and stops. Items marked (APPROVAL) wait for Malek; never start them unasked.
@@ -53,7 +53,7 @@ Check each hour, in order, and do the first thing that applies:
       `~/agent-forge/svc.sh start link af-operator af-coder`.) Linger: Malek said he would run `sudo loginctl enable-linger malekhassan` on the Spark. The autostart
       symlink of agent-forge-link.service was removed (22:10) so systemd does not start a second link daemon. Once
       `loginctl show-user malekhassan -p Linger` says yes: `~/agent-forge/svc.sh stop link && XDG_RUNTIME_DIR=/run/user/$(id -u)
-      systemctl --user enable --now agent-forge-link` (link survives reboots again). Leave the llama-servers on svc.sh.
+      systemctl --user enable --now stem` (link survives reboots again). Leave the llama-servers on svc.sh.
 - [x] A0. (done 22:00: productive, see RESULTS.md) Hard latent pilot (results/latent/Qwen_Qwen3-8B_n40_s20261115_hard.json): add to RESULTS.md next to the
       sweep. Productive = text_full well off ceiling and off the floor, and conditions differ beyond the CI.
 - [x] A. (done 21:50, see RESULTS.md) Spark latent sweep (~/agent-forge/run_sweep.sh, log sweep.log, results ~/agent-forge/results/latent/*ctx*):

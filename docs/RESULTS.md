@@ -1,4 +1,4 @@
-# agent-forge results log
+# stem results log
 
 ## Summary for Malek · 2026-11-21 05:45 · the "loop until 4" run is finished, target not reached
 

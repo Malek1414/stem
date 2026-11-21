@@ -1,0 +1,16 @@
+{
+  "name": "stem",
+  "version": "0.1.0",
+  "description": "Encrypted peer-to-peer link between Claude Code sessions: invites, task cards with human approval, messages, shared workspaces.",
+  "author": {
+    "name": "Malek1414"
+  },
+  "repository": "https://github.com/Malek1414/stem",
+  "keywords": [
+    "mcp",
+    "a2a",
+    "iroh",
+    "multi-agent",
+    "link"
+  ]
+}

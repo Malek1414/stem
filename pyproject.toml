@@ -1,5 +1,5 @@
 [project]
-name = "agent-forge"
+name = "stem"
 version = "0.1.0"
 description = "Operator + coder agents trained on your own Claude Code sessions, and a link between Claudes"
 requires-python = ">=3.12"
@@ -18,7 +18,7 @@ train = [
 ]
 
 [project.scripts]
-agent-forge-link = "link.__main__:main"
+stem = "link.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

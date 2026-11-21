@@ -12,7 +12,7 @@ from pathlib import Path
 
 import iroh
 
-DEFAULT_HOME = Path.home() / ".agent-forge" / "link"
+DEFAULT_HOME = Path.home() / ".stem" / "link"
 SCOPES = ("message", "request", "workspace")  # request = send task cards that run on this machine
 
 

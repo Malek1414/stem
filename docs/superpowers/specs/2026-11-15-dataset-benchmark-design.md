@@ -1,4 +1,4 @@
-# agent-forge, sub-project 1: dataset and benchmark
+# stem, sub-project 1: dataset and benchmark
 
 Date: 2026-11-15. Status: approved by interview, build started.
 

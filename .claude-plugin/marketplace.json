@@ -1,13 +1,15 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "agent-forge",
-  "description": "agent-forge: a peer-to-peer link between Claude Code sessions (and the operator/coder agents built on it)",
-  "owner": {"name": "Malek1414"},
+  "name": "stem",
+  "description": "stem: a peer-to-peer link between Claude Code sessions, so your team's Claudes can talk, hand off tasks and share a workspace",
+  "owner": {
+    "name": "Malek1414"
+  },
   "plugins": [
     {
-      "name": "agent-forge-link",
-      "source": "./plugins/agent-forge-link",
-      "description": "Connect your Claude Code to other people's Claudes and to your own agents: invites, task cards with approval, messages and shared workspaces over an encrypted peer-to-peer link (iroh + A2A).",
+      "name": "stem",
+      "source": "./plugins/stem",
+      "description": "Connect your Claude Code to your teammates' Claudes and to your own agents: invites, task cards with approval, messages and shared workspaces over an encrypted peer-to-peer link (iroh + A2A).",
       "version": "0.1.0",
       "category": "productivity"
     }

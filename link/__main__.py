@@ -6,7 +6,7 @@ status | peers | approvals | inbox [--after N]
 invite [--role peer|self] [--ttl-hours H]                           single-use invite
 join <invite> | revoke <peer> | approve <card_id> | deny <card_id> [--reason R]
 send <peer> <text>                                                  free-text A2A message
-Environment: AGENT_FORGE_LINK_HOME (default ~/.agent-forge/link)."""
+Environment: STEM_LINK_HOME (default ~/.stem/link)."""
 from __future__ import annotations
 
 import argparse
@@ -20,7 +20,7 @@ from .state import DEFAULT_HOME, State
 
 
 def main(argv=None) -> int:
-    home = Path(os.environ.get("AGENT_FORGE_LINK_HOME", DEFAULT_HOME))
+    home = Path(os.environ.get("STEM_LINK_HOME", DEFAULT_HOME))
     ap = argparse.ArgumentParser(prog="link")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")

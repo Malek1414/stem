@@ -99,7 +99,7 @@ class Node:
     @staticmethod
     def read_invite(invite: str) -> tuple[dict, bytes]:
         if not invite.startswith("afl1."):
-            raise LinkError("not an agent-forge link invite")
+            raise LinkError("not a stem invite")
         outer = json.loads(_unb64(invite[5:]))
         return outer["p"], _unb64(outer["s"])
 

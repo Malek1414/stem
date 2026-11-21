@@ -1,4 +1,4 @@
-# agent-forge
+# stem
 
 Two agents trained on your own Claude Code sessions, and a link that lets Claudes talk to each other.
 
@@ -13,16 +13,16 @@ Order of work: dataset and benchmarks → link → choosing the operator and the
 Needs [uv](https://docs.astral.sh/uv/). While the repo is private you also need read access to it (`gh auth login`, then `gh auth setup-git`).
 
 ```
-/plugin marketplace add Malek1414/agent-forge
-/plugin install agent-forge-link@agent-forge
+/plugin marketplace add Malek1414/stem
+/plugin install stem@stem
 ```
 
-Restart Claude Code. On first start the plugin launches a link daemon in the background. Run `/agent-forge-link:link-setup` to make it start at login. Then, to connect two Claudes:
+Restart Claude Code. On first start the plugin launches a link daemon in the background. Run `/stem:link-setup` to make it start at login. Then, to connect two Claudes:
 
 1. One side: "make a link invite". This gives a single-use ticket, valid for 72 hours. Send it privately.
 2. Other side: "join this invite: <ticket>".
 
-Cards from other people wait for your approval before anything runs. Only `role=self` peers (your own machines) are trusted without approval. See [the link skill](plugins/agent-forge-link/skills/link/SKILL.md).
+Cards from other people wait for your approval before anything runs. Only `role=self` peers (your own machines) are trusted without approval. See [the link skill](plugins/stem/skills/link/SKILL.md).
 
 ## Layout
 
@@ -31,7 +31,7 @@ Cards from other people wait for your approval before anything runs. Only `role=
 | `link/` | daemon (`python -m link run`), CLI, MCP server, task cards, KV-blob channel |
 | `forge/` | dataset snapshots from Claude Code sessions, benchmarks A-D, agent harness, operator+coder duo, model backends (Ollama, llama.cpp) |
 | `latent/` | latent communication: KV handoff (fp16/int8), KVComm-style layer selection, LatentMAS, and its benchmark (`--level hard` for multi-hop tasks) |
-| `plugins/agent-forge-link/` | the Claude Code plugin (MCP server, skills, daemon installer) |
+| `plugins/stem/` | the Claude Code plugin (MCP server, skills, daemon installer) |
 | `docs/` | status, results, design specs, research notes |
 
 ## Development

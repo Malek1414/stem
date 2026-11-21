@@ -1,4 +1,4 @@
-# agent-forge, sub-project 2: the link
+# stem, sub-project 2: the link
 
 Date: 2026-11-15. Status: design approved ("keep going", 2026-11-15); v1 built in `link/`, 13 tests.
 
@@ -39,8 +39,8 @@ Deviations from the proposal, with reasons:
 
 ## Deployment (2026-11-15, approved by Malek: "all of them")
 
-- Mac: launchd agent `com.agent-forge.link` (`~/Library/LaunchAgents/com.agent-forge.link.plist`), node `malek`,
-  UDP 47100, relay mode, log `~/Library/Logs/agent-forge-link.log`. MCP server `link` registered at user scope.
+- Mac: launchd agent `com.stem.link` (`~/Library/LaunchAgents/com.stem.link.plist`), node `malek`,
+  UDP 47100, relay mode, log `~/Library/Logs/stem-link.log`. MCP server `link` registered at user scope.
 - Spark: node `spark`, systemd user unit `agent-forge-link.service`, code in `~/agent-forge`, venv `~/agent-forge/.venv`.
   Reached only through the NVIDIA Sync tunnel to the dashboard's JupyterLab (kernel API driven from Malek's
   logged-in browser tab), never plain ssh. Linger could not be enabled without sudo, so the unit lives as long as

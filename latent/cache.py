@@ -86,7 +86,7 @@ def pack(cache, model_id: str, layers: list[int] | None = None, quant: str = "fp
 
 def read_header(blob: bytes) -> tuple[dict, int]:
     if not blob.startswith(MAGIC):
-        raise ValueError("not an agent-forge KV blob")
+        raise ValueError("not a stem KV blob")
     n = struct.unpack(">I", blob[len(MAGIC):len(MAGIC) + 4])[0]
     start = len(MAGIC) + 4
     return json.loads(blob[start:start + n]), start + n
