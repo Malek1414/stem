@@ -69,6 +69,20 @@ def api_checker(model: str):
     return ask
 
 
+# Opus 5.5 API prices, $ per million tokens (checked against the 17.11 run: $37 for 78 attempts)
+PRICE = {"input_tokens": 4.0, "output_tokens": 20.0, "cache_read_input_tokens": 0.20, "cache_creation_input_tokens": 5.0}
+TASK_RESERVE_USD = 2.5  # the most one attempt plus its check cost on 17.11 was well under this
+
+
+def usd(usage: dict) -> float:
+    return sum(usage.get(k, 0) * p for k, p in PRICE.items()) / 1e6
+
+
+def spent(runs: Path) -> float:
+    """Dollars already spent by this worker (rows written with "usd"), so a restarted run keeps counting."""
+    return sum(json.loads(l).get("usd", 0) for l in open(runs)) if runs.exists() else 0.0
+
+
 VIA = {"claude-p": ("claude-p:{m}", claude_checker), "api": ("anthropic:{m}", api_checker)}
 
 
@@ -98,7 +112,8 @@ def example(ep: dict, role: str = "coder") -> dict:
     return {"messages": msgs, "tools": ep["tools"], "loss_from": loss_from, "source": {"role": role}}
 
 
-def run(snapshot: Path, model: str, n: int, seed: int, agent: str, tag: str = "", via: str = "claude-p") -> Path:
+def run(snapshot: Path, model: str, n: int, seed: int, agent: str, tag: str = "", via: str = "claude-p",
+        budget_usd: float = 0.0) -> Path:
     snapshot = Path(snapshot)
     spec, checker = VIA[via]
     spec = spec.format(m=model)
@@ -116,9 +131,17 @@ def run(snapshot: Path, model: str, n: int, seed: int, agent: str, tag: str = ""
     schemas = json.loads((snapshot / "tools.json").read_text())
     chat, ask = backends.chat(spec), checker(model)
     from . import anthropic_backend
+    if via == "api" and not budget_usd:
+        raise SystemExit("--via api needs --budget-usd (Malek's credits; the worker stops before going over)")
+    before = spent(runs)
     for task in tasks:
         if task["id"] in done:
             continue
+        if via == "api" and before + usd(anthropic_backend.USAGE) + TASK_RESERVE_USD > budget_usd:
+            print(json.dumps({"stopped": "budget", "spent_usd": round(before + usd(anthropic_backend.USAGE), 2),
+                              "budget_usd": budget_usd}))
+            break
+        start = usd(anthropic_backend.USAGE)
         row = bench_c.run_task(task, trajs[task["file"]]["steps"], chat, ask, schemas=schemas, agent=agent,
                                keep=True, null_control=False)
         if row["status"] != "ok":  # usage limit or CLI failure: stop, the next run resumes here
@@ -127,6 +150,7 @@ def run(snapshot: Path, model: str, n: int, seed: int, agent: str, tag: str = ""
         row |= {"agent": agent, "model": model, "via": via}
         if via == "api":
             row["usage_so_far"] = dict(anthropic_backend.USAGE)
+            row["usd"] = round(usd(anthropic_backend.USAGE) - start, 4)
         with open(runs, "a") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         print(json.dumps({"id": task["id"][-40:], "overall": row["grade"].get("overall"), "steps": row["steps"],
@@ -173,8 +197,9 @@ if __name__ == "__main__":
     ap.add_argument("--min-overall", type=int, default=4)
     ap.add_argument("--tag", default="", help="worker name: its own runs-<tag>.jsonl")
     ap.add_argument("--via", default="claude-p", choices=sorted(VIA), help="claude -p (plan) or the API (credits)")
+    ap.add_argument("--budget-usd", type=float, default=0.0, help="API only: hard cap for this worker (--tag), across restarts")
     a = ap.parse_args()
     if a.build:
         print(json.dumps(build(Path(a.snapshot), a.model, a.min_overall), indent=1))
     else:
-        run(Path(a.snapshot), a.model, a.n, a.seed, a.agent, a.tag, a.via)
+        run(Path(a.snapshot), a.model, a.n, a.seed, a.agent, a.tag, a.via, a.budget_usd)

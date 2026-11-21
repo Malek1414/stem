@@ -358,3 +358,10 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
 - [x] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
       21.11 05:40 started (94 GB available after the coder, judge unloaded); healthy, 71 GB available after.
+
+- [ ] D3. More data with Malek's existing API credits (21.11 12:40: "I have some API credits in my Organization like
+      100"; approved up to $90, auto-reload off). forge.distill got --budget-usd (hard cap per worker, counted from
+      the rows' "usd" field across restarts, $2.50 reserve per attempt; --via api refuses to run without it; tests).
+      12:51 work/queue24.sh (worker api2, log queue24.log) on the 150 untried turns of tasks_n400_seed2 (~$65 at
+      17.11's $0.43/attempt). Then `forge.distill --build`, retrain v5 with v3's settings (2 epochs, rank 16) on
+      the larger data, bench C replay, compare with v3 2.90. The free-only rule still holds for everything else.

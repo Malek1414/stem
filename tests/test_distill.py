@@ -53,3 +53,40 @@ def test_claudes_summarised_thinking_becomes_reasoning_content():
                          {"assistant": "Done.", "calls": []}]}
     m = distill.example(ep)["messages"]
     assert m[2]["reasoning_content"] == "See where the rename stands." and "reasoning_content" not in m[4]
+
+
+def test_usd_matches_opus_prices_and_spent_sums_rows(tmp_path):
+    assert distill.usd({"input_tokens": 1_000_000, "output_tokens": 1_000_000, "cache_read_input_tokens": 1_000_000,
+                        "cache_creation_input_tokens": 1_000_000}) == 4 + 20 + 0.2 + 5
+    f = tmp_path / "runs-x.jsonl"
+    f.write_text('{"id": "a", "usd": 1.5}\n{"id": "b"}\n{"id": "c", "usd": 2.0}\n')
+    assert distill.spent(f) == 3.5 and distill.spent(tmp_path / "none.jsonl") == 0
+
+
+def test_api_worker_stops_before_the_budget(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from forge import anthropic_backend, backends, bench_c
+    snap = tmp_path / "v0002"
+    snap.mkdir()
+    (snap / "tools.json").write_text("[]")
+    monkeypatch.setattr(distill, "OUT", tmp_path / "out")
+    monkeypatch.setattr(distill, "train_trajectories", lambda s: [{"meta": {"file": "f"}, "steps": []}])
+    tasks = [{"id": f"t{i}", "file": "f"} for i in range(10)]
+    monkeypatch.setattr(bench_c, "build_tasks", lambda *a, **k: tasks)
+    monkeypatch.setattr(backends, "chat", lambda spec: None)
+    monkeypatch.setitem(distill.VIA, "api", ("anthropic:{m}", lambda m: None))
+    monkeypatch.setattr(anthropic_backend, "USAGE", {"calls": 0, "output_tokens": 0})
+
+    def fake_task(task, *a, **k):  # each attempt costs $1 (50k output tokens)
+        anthropic_backend.USAGE["output_tokens"] += 50_000
+        return {"id": task["id"], "status": "ok", "grade": {"overall": 4}, "steps": 1, "seconds": 1}
+    monkeypatch.setattr(bench_c, "run_task", fake_task)
+    with pytest.raises(SystemExit):
+        distill.run(snap, "m", 10, 0, "v2", tag="b", via="api")  # no budget given
+    runs = distill.run(snap, "m", 10, 0, "v2", tag="b", via="api", budget_usd=6.0)
+    rows = [json.loads(l) for l in open(runs)]
+    assert len(rows) == 4 and distill.spent(runs) == 4.0  # 3 spent + 2.5 reserve fits 6, then 4 + 2.5 does not
+    anthropic_backend.USAGE["output_tokens"] = 0  # a restart keeps counting what the file already holds
+    distill.run(snap, "m", 10, 0, "v2", tag="b", via="api", budget_usd=6.0)
+    assert len(open(runs).readlines()) == 4
