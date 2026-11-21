@@ -345,12 +345,16 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       No paid API runs (Malek's free-only rule, 20.11): no more A3 data via the API worker (queue18).
       21.11 00:19 done 20/20, 0 infra: overall 2.90 (2.27-3.53), offline 3.00; +0.45 over v2, level with base 2.85.
       Recorded in RESULTS.md. Stop rule not hit (gain >= 0.1), target 4.0 not reached -> L2.
-- [ ] L2. Loop iteration 2 of 3 (change (3): rank 32; alpha 64 to keep alpha/rank = 2; otherwise as v3, 2 epochs).
+- [x] L2. Loop iteration 2 of 3 (change (3): rank 32; alpha 64 to keep alpha/rank = 2; otherwise as v3, 2 epochs).
       21.11 00:31 `train.sh coder27 v4 0 ... --epochs 2 --rank 32 --alpha 64` (log train_coder27_v4.log, guard on,
       judge unloaded and af-coder-27t stopped first, 116 GB free). after_train_v4.sh serves coder27-v4 on
       af-coder-27t and sends "v4-ready"; work/queue23.sh (log queue23.log) runs bench C replay as
       qwen38-heretic-tuned-v4. Compare with v3 2.90. After it: iteration 3 is the last; with no change (1) left,
       the loop ends after L2 unless Malek names another change -> write the summary at the top of RESULTS.md.
+      05:23 done 20/20, 0 infra: overall 2.55 (1.89-3.21), offline 2.88; -0.35 vs v3. Loop finished (planned changes
+      used up), target 4.0 not reached. Summary at the top of RESULTS.md. Best coder v3 served on af-coder-27t
+      (CODER27_ADAPTER=adapters/coder27-v3/coder27-v3.gguf; without it svc.sh picks the newest adapter, v4).
 - [x] W2. When queue20 says done: record 27B + LoRA v2 (bench C replay, CI, read_session_logs) in RESULTS.md next to 2.85
       (base) and 2.30 (v1); commit. Then continue with "Target and loop" (one change per iteration).
-- [ ] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
+- [x] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
+      21.11 05:40 started (94 GB available after the coder, judge unloaded); healthy, 71 GB available after.

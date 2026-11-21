@@ -1,5 +1,37 @@
 # agent-forge results log
 
+## Summary for Malek · 2026-11-21 05:45 · the "loop until 4" run is finished, target not reached
+
+**Best coder: the 27B + LoRA v3, benchmark C (replay) 2.90 (2.27-3.53)**, level with the untuned 27B at 2.85
+(2.28-3.42) and with Claude Opus 5.5 run through the same harness at 2.95. The target was 4.0; nothing reached it,
+and no LoRA is measurably better than the untuned model (all CIs overlap).
+
+| Coder (Qwen3.8-27B-heretic) | Bench C replay | Offline (8) | vs untuned (better/worse tasks) |
+|---|---|---|---|
+| untuned | 2.85 (2.28-3.42) | 3.13 | - |
+| LoRA v1 (36 claude -p attempts) | 2.30 (1.75-2.85) | 2.38 | 2 / 11 |
+| LoRA v2 (67 attempts, 19 with thinking) | 2.45 (1.99-2.91) | 2.38 | 1 / 6 |
+| **LoRA v3 = v2 + second epoch** (loop 1) | **2.90** (2.27-3.53) | 3.00 | 4 / 5 |
+| LoRA v4 = v3 + rank 32 (loop 2) | 2.55 (1.89-3.21) | 2.88 | 4 / 9 |
+
+What the loop did: change (1) "2x token budget" did not apply (v2 already used every example); (2) a second epoch
+gave +0.45; (3) rank 32 gave -0.35 although its eval loss was slightly lower (0.721 vs 0.725). With the planned
+changes used up, the loop stops after 2 iterations. Honest reading: with 67 examples and n=20 tasks the differences
+between v2, v3, v4 and the base are mostly noise (one task moving 1->5 shifts the mean by 0.2). The limit is the
+data, not the knobs: more checked attempts would help most, but the free-only rule (20.11) rules out the paid API
+worker that produced them, so new data has to come from free sources (claude -p in-harness runs, Malek's own
+sessions).
+
+Running now on the Spark: af-coder-27t with adapters/coder27-v3 (port 8088) and af-operator (holo4, port 8081),
+link daemon; judge unloaded; 71 GB available. Every run had 0 infra errors and no truncated generations.
+
+## 2026-11-21 · 27B + LoRA v4 (v3 + rank 32, alpha 64) · benchmark C with replay
+
+Loop iteration 2 (change: rank 16 -> 32, alpha 32 -> 64 to keep the ratio; data, 2 epochs, seed as v3). 61 steps,
+eval loss 0.806 -> 0.721 (v3 0.725). **Overall 2.55 (1.89-3.21)** against 2.90 for v3 (3 tasks better, 7 worse)
+and 2.85 untuned (4 better, 9 worse); offline 2.88 (1.68-4.07). Lower eval loss did not carry over to the agent
+benchmark. 20/20 graded, 0 infra errors, read_session_logs 0; 259 s/task.
+
 ## 2026-11-21 · 27B + LoRA v3 (v2's data, 2 epochs) · benchmark C with replay
 
 Loop iteration 1 of 3 (change: a second epoch, everything else as v2). **Overall 2.90 (2.27-3.53)** against 2.85 for
@@ -140,6 +172,7 @@ a252aa4); with 19 tasks it was 2.26.
 | coder Qwen3.8-27B + LoRA v1 (36 claude -p attempts) | 20 | 0 | 2.80 | 2.80 | 2.35 | 1.90 | **2.30** (1.75-2.85) | 2.38 | 438 |
 | coder Qwen3.8-27B + LoRA v2 (67 attempts, 19 with thinking) | 20 | 0 | 2.75 | 2.35 | 1.95 | 1.95 | **2.45** (1.99-2.91) | 2.38 | 404 |
 | coder Qwen3.8-27B + LoRA v3 (v2 data, 2 epochs) | 20 | 0 | 3.35 | 3.00 | 2.50 | 2.40 | **2.90** (2.27-3.53) | 3.00 | 442 |
+| coder Qwen3.8-27B + LoRA v4 (v3 + rank 32) | 20 | 0 | 3.15 | 2.85 | 2.55 | 2.30 | **2.55** (1.89-3.21) | 2.88 | 259 |
 | reference: Claude Opus 5.5, effort high (not a candidate) | 20 | 0 | 3.45 | 3.15 | 2.80 | 2.70 | **2.95** (2.31-3.59) | 3.00 | 71 |
 
 Two of the coder's replay tasks first failed on harness bugs (orphan tool message; a request over the 64k
