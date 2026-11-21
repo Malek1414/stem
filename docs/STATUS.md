@@ -359,7 +359,7 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
 - [x] W3. Operator: start af-operator only when free -g shows >= 30 GB available after the coder and no judge is loaded.
       21.11 05:40 started (94 GB available after the coder, judge unloaded); healthy, 71 GB available after.
 
-- [ ] D3. More data with Malek's existing API credits (21.11 12:40: "I have some API credits in my Organization like
+- [x] D3. More data with Malek's existing API credits (21.11 12:40: "I have some API credits in my Organization like
       100"; approved up to $90, auto-reload off). forge.distill got --budget-usd (hard cap per worker, counted from
       the rows' "usd" field across restarts, $2.50 reserve per attempt; --via api refuses to run without it; tests).
       12:51 work/queue24.sh (worker api2, log queue24.log) on the 150 untried turns of tasks_n400_seed2 (~$65 at
@@ -371,3 +371,4 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       108 lines (after a Sync reconnect). 16:41 v5 training started (work/push_v5.js: v3 settings, rank 16, 2 epochs, 108
       examples; judge unloaded, af-coder-27t and af-operator stopped for > 100 GB, 116 GB free). after_train_v5.sh
       serves CODER27_ADAPTER=adapters/coder27-v5 explicitly; work/queue25.sh waits for v5-ready, then bench C replay.
+  22.11 00:45: done. v5 bench C replay 2.90 (2.28-3.52) = v3 2.90 (v3 wins 6/4 per task, offline 3.00 vs 2.88), base 2.85. v3 served again on af-coder-27t, af-operator restarted, 71 GB free.
