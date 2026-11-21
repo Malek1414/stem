@@ -368,4 +368,6 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       15:02: the org credits ran out (API 400 "credit balance is too low") after 55 attempts, $26.00 by our count,
       16 kept (grade >= 4). `--build` 15:05: 108 kept examples (was 67), 25 dropped for reading session logs.
       15:25: coder.jsonl copied to the Spark in 5 chunks (one 3 MB message was dropped), sha256 6dfecac5... matches,
-      108 lines (after a Sync reconnect). Next: train v5.
+      108 lines (after a Sync reconnect). 16:41 v5 training started (work/push_v5.js: v3 settings, rank 16, 2 epochs, 108
+      examples; judge unloaded, af-coder-27t and af-operator stopped for > 100 GB, 116 GB free). after_train_v5.sh
+      serves CODER27_ADAPTER=adapters/coder27-v5 explicitly; work/queue25.sh waits for v5-ready, then bench C replay.
