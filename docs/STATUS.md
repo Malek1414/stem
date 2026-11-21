@@ -367,4 +367,5 @@ Watcher steps, in order (one Spark job at a time; the Spark's other tenant, admi
       the larger data, bench C replay, compare with v3 2.90. The free-only rule still holds for everything else.
       15:02: the org credits ran out (API 400 "credit balance is too low") after 55 attempts, $26.00 by our count,
       16 kept (grade >= 4). `--build` 15:05: 108 kept examples (was 67), 25 dropped for reading session logs.
-      Next: copy coder.jsonl to the Spark and train v5.
+      15:25: coder.jsonl copied to the Spark in 5 chunks (one 3 MB message was dropped), sha256 6dfecac5... matches,
+      108 lines (after a Sync reconnect). Next: train v5.
