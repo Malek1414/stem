@@ -14,7 +14,9 @@ import json
 
 EFFORT = "high"
 MAX_TOKENS = 16_000  # thinking + a tool call; the local models' 4096 cap would cut Claude off mid-thought
-THINKING = {"type": "adaptive", "display": "summarized"}  # summaries come back as text (default: omitted); for A3
+THINKING = {"type": "adaptive", "display": "summarized",
+            # 22.11: a forced final turn changes the tools list; drop the old thinking blocks instead of a 400
+            "block_binding": {"prefix_mismatch_behavior": "drop_block"}}  # summaries come back as text (default: omitted); for A3
 USAGE = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
 
 
@@ -112,7 +114,7 @@ def chat(model: str):
         resp = client.beta.messages.create(
             model=model, max_tokens=MAX_TOKENS, system=system or anthropic.NOT_GIVEN, messages=msgs,
             output_config={"effort": EFFORT}, thinking=THINKING, cache_control={"type": "ephemeral"},
-            betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kw)
+            betas=["server-side-fallback-2026-07-01", "thinking-binding-controls-2026-08-01"], fallbacks="default", **kw)
         USAGE["calls"] += 1
         for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
             USAGE[k] += getattr(resp.usage, k, 0) or 0

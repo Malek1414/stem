@@ -72,8 +72,11 @@ def build_tasks(trajectories: list[dict], n: int = 20, seed: int = 0) -> list[di
 
 
 def tasks_for(snapshot: Path, n: int = 20) -> list[dict]:
+    """The frozen task list. n=0: every usable held-out turn (bench C "all", 22.11: 39 on v0002, a superset of the 20)."""
     snapshot = Path(snapshot)
-    frozen = RESULTS / "bench_c_tasks" / f"{snapshot.name}.json"
+    frozen = RESULTS / "bench_c_tasks" / (f"{snapshot.name}.json" if n else f"{snapshot.name}_all.json")
+    if not n:
+        n = 10**6
     if frozen.exists():
         return json.loads(frozen.read_text())
     tasks = build_tasks(bench_a.load_heldout(snapshot), n=n)
@@ -241,9 +244,9 @@ def run_task(task: dict, steps: list[dict], chat: harness.ChatFn, ask, root: Pat
 
 
 def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: str = net.SYNC_OLLAMA,
-        limit: int | None = None, seed: int = 0, replay: bool = False, agent: str = "v1") -> Path:
+        limit: int | None = None, seed: int = 0, replay: bool = False, agent: str = "v1", all_tasks: bool = False) -> Path:
     snapshot = Path(snapshot)
-    tasks = tasks_for(snapshot)
+    tasks = tasks_for(snapshot, n=0 if all_tasks else 20)
     tasks = tasks[:limit] if limit else tasks
     trajs = {t["meta"]["file"]: t for t in bench_a.load_heldout(snapshot)}
     settings = {"sampling": backends.sampling(model), "max_tokens": backends.MAX_TOKENS, "seed": seed, "max_steps": 15, "wall_seconds": 600, "harness": harness.HARNESS_VERSION,
@@ -255,11 +258,19 @@ def run(snapshot: Path, model: str, judge_model: str = DEFAULT_JUDGE, base_url: 
     if agent != "v1":  # v1 keeps the settings and file names of every earlier run
         settings["agent"] = agent
         name += f"_agent-{agent}"
+    small = None
+    if all_tasks:  # same settings, so the 20-task run's graded rows are reused (identical tasks, temperature 0)
+        small = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / f"{name}.json"
+        name += "_all"
     out = RESULTS / re.sub(r"[^A-Za-z0-9._-]", "_", backends.label(model)) / snapshot.name / f"{name}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     prev = json.loads(out.read_text()) if out.exists() else {}
     done = ({r["id"]: r for r in prev.get("tasks", []) if r.get("status", "ok") != "infra_error"}
             if prev.get("settings") == settings else {})
+    if small and small.exists():
+        sm = json.loads(small.read_text())
+        if sm.get("settings") == settings:
+            done = {r["id"]: r for r in sm.get("tasks", []) if r.get("status", "ok") != "infra_error"} | done
     record = {"model": backends.record(model), "judge": bench_a.model_digest(base_url, judge_model)}
     chat, ask = backends.chat(model, seed=seed), ollama_json(judge_model, base_url, seed=seed)
     schemas = json.loads((snapshot / "tools.json").read_text()) if replay else None

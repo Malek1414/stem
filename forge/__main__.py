@@ -55,6 +55,7 @@ def main(argv=None) -> int:
                     help="agent-side instructions (the benchmark itself is the same for every version)")
     bc.add_argument("--base-url", default=net.SYNC_OLLAMA)
     bc.add_argument("--limit", type=int)
+    bc.add_argument("--all-tasks", action="store_true", help="every usable held-out turn (39 on v0002) instead of the frozen 20")
     bc.add_argument("--replay-tools", action="store_true", help="give the agent the original turn's app/web tools, answered from the recording")
     bd = sub.add_parser("bench-d", help="click grounding on the user's own screens (vision models)")
     bd.add_argument("snapshot")
@@ -104,7 +105,7 @@ def main(argv=None) -> int:
         print(json.dumps(sft.build(Path(a.snapshot), Path(a.out), a.max_chars), indent=1))
         return 0
     if a.cmd == "bench-c":
-        out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit, replay=a.replay_tools, agent=a.agent)
+        out = bench_c.run(Path(a.snapshot), a.model, a.judge, a.base_url, limit=a.limit, replay=a.replay_tools, agent=a.agent, all_tasks=a.all_tasks)
         print(out)
         print(json.dumps(json.loads(out.read_text())["overall"], indent=1))
         return 0
